@@ -15,14 +15,22 @@ if [[ ! -f "$SHELL_CONFIG" ]]; then
   exit 1
 fi
 
+install_if_missing() {
+  local source="$1"
+  local destination="$2"
+  if [[ ! -e "$destination" ]]; then
+    install -Dm644 "$source" "$destination"
+  fi
+}
+
 install -Dm644 "$ROOT/Panel.qml" "$PLUGIN_DIR/Panel.qml"
 install -Dm644 "$ROOT/Model.js" "$PLUGIN_DIR/Model.js"
 install -Dm644 "$ROOT/manifest.json" "$PLUGIN_DIR/manifest.json"
 install -Dm644 "$ROOT/assets/blueview-logo-dark.svg" "$PLUGIN_DIR/blueview-logo-dark.svg"
 install -Dm755 "$ROOT/scripts/imac-audio-controls" "$BIN_DIR/imac-audio-controls"
-install -Dm644 "$ROOT/pipewire/50-blue-view-open-quad.conf" \
+install_if_missing "$ROOT/pipewire/50-blue-view-open-quad.conf" \
   "$CONFIG_HOME/pipewire/filter-chain.conf.d/50-blue-view-open-quad.conf"
-install -Dm644 "$ROOT/systemd/blue-view-open-quad.service" \
+install_if_missing "$ROOT/systemd/blue-view-open-quad.service" \
   "$UNIT_DIR/blue-view-open-quad.service"
 
 CONFIG_FILE="$CONFIG_HOME/blueview-audio/config.json"
@@ -60,3 +68,4 @@ PY
 systemctl --user daemon-reload
 printf 'Blue View Audio installed. Reload the Omarchy shell or sign out and back in to show the panel.\n'
 printf 'Open Quad Spatial remains off until you enable it in the panel.\n'
+printf 'Existing hardware, EQ, and spatial configuration files are preserved.\n'
