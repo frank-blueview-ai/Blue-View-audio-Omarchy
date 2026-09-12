@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""Blue View Audio controls for the Omarchy panel."""
+# Copyright © 2026 The Blue View Group Corporation and Frank Perez (frank@blueview.ai).
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HOME = Path.home()
+CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
+MACHINE_CONFIG_FILE = CONFIG_HOME / "blueview-audio/config.json"
+try:
+    MACHINE_CONFIG = json.loads(MACHINE_CONFIG_FILE.read_text())
+    if not isinstance(MACHINE_CONFIG, dict):
+        MACHINE_CONFIG = {}
+except (OSError, ValueError, TypeError):
+    MACHINE_CONFIG = {}
+
+PLUGIN_DIR = CONFIG_HOME / "omarchy/plugins/fperez.audio"
+STATE_FILE = PLUGIN_DIR / "device-state.json"
+PULSE_CONFIG = CONFIG_HOME / "pipewire/pipewire-pulse.conf.d/40-imac-channel-map.conf"
+WP_CONFIG = CONFIG_HOME / "wireplumber/wireplumber.conf.d/50-imac-equalizer.conf"
+SPATIAL_SERVICE = "blue-view-open-quad.service"
+SPATIAL_SINK = "effect_input.blue_view_open_quad"
+CAMERA_AUTH = Path(str(os.environ.get(
+    "BLUEVIEW_CAMERA_AUTH",
+    MACHINE_CONFIG.get("cameraAuthorizationPath", "/sys/bus/usb/devices/1-5/authorized"),
+)))
+MASTER = str(os.environ.get(
+    "BLUEVIEW_MASTER_SINK",
+    MACHINE_CONFIG.get("masterSink", "alsa_output.pci-0000_00_1b.0.analog-surround-40"),
+))
+CHANNELS = {"front-left", "front-right", "rear-left", "rear-right"}
+DEFAULT_MASTER_MAP = ["rear-left", "rear-right", "front-left", "front-right"]
+MASTER_MAP = MACHINE_CONFIG.get("masterChannelMap", DEFAULT_MASTER_MAP)
+if (not isinstance(MASTER_MAP, list) or len(MASTER_MAP) != 4
+        or any(not isinstance(channel, str) for channel in MASTER_MAP)
+        or set(MASTER_MAP) != CHANNELS):
+    MASTER_MAP = DEFAULT_MASTER_MAP
+DEFAULT_STATE = {
+    "routes": {
+        "rear-left": "front-right",
+        "rear-right": "rear-right",
+        "front-left": "front-left",
+        "front-right": "rear-left",
+    },
+    "eqEnabled": False,
+    "eqGainsFront": [0, 0, 0, 0, 0, 0],
+    "eqGainsRear": [0, 0, 0, 0, 0, 0],
+    "spatialEnabled": False,
+    "spatialPreviousDefault": "imac_fixed",
+}
+EQ_BANDS = [(80, "bq_lowshelf"), (250, "bq_peaking"), (700, "bq_peaking"),
+            (2000, "bq_peaking"), (5000, "bq_peaking"), (10000, "bq_highshelf")]
+
+
+def atomic_write(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(data)
+    tmp.replace(path)
+
+
+def load_state():
+    state = json.loads(json.dumps(DEFAULT_STATE))
+    try:
+        saved = json.loads(STATE_FILE.read_text())
+        state["routes"] = {**DEFAULT_STATE["routes"], **saved.get("routes", {})}
+        state["eqEnabled"] = bool(saved.get("eqEnabled", state["eqEnabled"]))
+        legacy = saved.get("eqGains", [0, 0, 0, 0, 0, 0])
+        for key in ("eqGainsFront", "eqGainsRear"):
+            gains = saved.get(key, legacy)
+            if isinstance(gains, list) and len(gains) == 6:
+                state[key] = [max(-12, min(12, int(round(float(v))))) for v in gains]
+    except (OSError, ValueError, TypeError):
+        pass
+    for dest, src in state["routes"].items():
+        if dest not in CHANNELS or src not in CHANNELS:
+            state["routes"] = dict(DEFAULT_STATE["routes"])
+            break
+    return state
+
+
+def save_state(state):
+    atomic_write(STATE_FILE, json.dumps(state, indent=2) + "\n")
+
+
+def camera_status():
+    try:
+        enabled = CAMERA_AUTH.exists() and CAMERA_AUTH.read_text().strip() == "1"
+    except OSError:
+        enabled = False
+    return {"cameraAvailable": CAMERA_AUTH.exists(), "cameraEnabled": enabled}
+
+
+def pulse_config(routes):
+    channel_map = ",".join(routes[channel] for channel in MASTER_MAP)
+    return (
+        "pulse.cmd = [\n"
+        "  { cmd = \"load-module\" args = \"module-remap-sink sink_name=imac_fixed "
+        f"master={MASTER} channels=4 master_channel_map={','.join(MASTER_MAP)} "
+        f"channel_map={channel_map} remix=no\" flags = [ \"nofail\" ] }}\n"
+        "]\n"
+    )
+
+
+def run(args, **kwargs):
+    return subprocess.run(args, check=True, text=True, capture_output=True,
+                         timeout=kwargs.get("timeout", 30), input=kwargs.get("input"))
+
+
+def current_sink_state():
+    volume = "100%"
+    muted = "0"
+    try:
+        output = run(["pactl", "get-sink-volume", "imac_fixed"]).stdout
+        matches = re.findall(r"([0-9]+(?:\.[0-9]+)?)%", output)
+        if matches:
+            volume = f"{int(round(float(matches[0])))}%"
+        muted = "1" if "yes" in run(["pactl", "get-sink-mute", "imac_fixed"]).stdout else "0"
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    try:
+        default = run(["pactl", "get-default-sink"]).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        default = "imac_fixed"
+    return volume, muted, default
+
+
+def reload_remap(routes):
+    volume, muted, default = current_sink_state()
+    modules = run(["pactl", "list", "short", "modules"]).stdout.splitlines()
+    for line in modules:
+        fields = line.split("\t", 2)
+        if len(fields) == 3 and fields[1] == "module-remap-sink" and "sink_name=imac_fixed" in fields[2]:
+            run(["pactl", "unload-module", fields[0]])
+    run(["pactl", "load-module", "module-remap-sink", f"sink_name=imac_fixed",
+         f"master={MASTER}", "channels=4", f"master_channel_map={','.join(MASTER_MAP)}",
+         f"channel_map={','.join(routes[ch] for ch in MASTER_MAP)}", "remix=no"])
+    deadline = time.monotonic() + 4
+    while time.monotonic() < deadline:
+        sinks = run(["pactl", "list", "short", "sinks"]).stdout
+        if "\timac_fixed\t" in sinks:
+            break
+        time.sleep(0.15)
+    if default == "imac_fixed":
+        run(["pactl", "set-default-sink", "imac_fixed"])
+    run(["pactl", "set-sink-volume", "imac_fixed", volume])
+    run(["pactl", "set-sink-mute", "imac_fixed", muted])
+
+
+def wp_config(state):
+    flat = [0, 0, 0, 0, 0, 0]
+    channel_filters = []
+    for index, speaker in enumerate(MASTER_MAP, 1):
+        pair_gains = state["eqGainsFront"] if speaker.startswith("front-") else state["eqGainsRear"]
+        gains = pair_gains if state["eqEnabled"] else flat
+        filters = []
+        for i, ((freq, kind), gain) in enumerate(zip(EQ_BANDS, gains)):
+            filters.append(
+                "                  { type = %s freq = %.1f gain = %.1f q = %.3f }" %
+                (kind, float(freq), float(gain), 0.707 if i in (0, 5) else 1.0)
+            )
+        channel_filters.append(
+            f"                filters{index} = [\n" + ",\n".join(filters) + "\n                ]"
+        )
+    return (
+        "node.filter-graph.rules = [\n"
+        "  {\n"
+        "    matches = [ { node.name = \"imac_fixed\" } ]\n"
+        "    actions = {\n"
+        "      create-filter-graph = [\n"
+        "        {\n"
+        "          nodes = [\n"
+        "            { type = builtin name = blue_view_param_eq label = param_eq\n"
+        "              config = {\n"
+        + "\n".join(channel_filters) + "\n"
+        "              }\n"
+        "            }\n"
+        "          ]\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  }\n"
+        "]\n"
+    )
+
+
+def apply_eq(state):
+    try:
+        default_sink = run(["pactl", "get-default-sink"]).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        default_sink = "imac_fixed"
+    atomic_write(WP_CONFIG, wp_config(state))
+    run(["systemctl", "--user", "restart", "wireplumber.service"], timeout=30)
+    time.sleep(0.4)
+    try:
+        sinks = run(["pactl", "list", "short", "sinks"]).stdout
+        if any(line.split("\t", 2)[1] == default_sink for line in sinks.splitlines() if "\t" in line):
+            run(["pactl", "set-default-sink", default_sink])
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+
+def sink_index(name):
+    for line in run(["pactl", "list", "short", "sinks"]).stdout.splitlines():
+        fields = line.split("\t", 2)
+        if len(fields) >= 2 and fields[1] == name:
+            return fields[0]
+    return None
+
+
+def move_sink_inputs(source, destination):
+    source_index = sink_index(source)
+    if source_index is None or sink_index(destination) is None:
+        return
+    output = run(["pactl", "list", "sink-inputs"]).stdout
+    for block in output.split("Sink Input #")[1:]:
+        lines = block.splitlines()
+        if not lines:
+            continue
+        input_id = lines[0].strip()
+        sink_match = re.search(r"^\s*Sink:\s+(\d+)", block, re.MULTILINE)
+        node_match = re.search(r'node\.name\s*=\s*"([^"]+)"', block)
+        node_name = node_match.group(1) if node_match else ""
+        if (sink_match and sink_match.group(1) == source_index
+                and not node_name.startswith(("output.", "effect_output."))):
+            run(["pactl", "move-sink-input", input_id, destination])
+
+
+def set_spatial_mode(state, enabled):
+    current = current_sink_state()[2]
+    if enabled:
+        if current not in ("imac_fixed", SPATIAL_SINK):
+            raise RuntimeError("Select the iMac four-channel speakers before enabling Open Quad Spatial")
+        if current != SPATIAL_SINK:
+            state["spatialPreviousDefault"] = current
+            save_state(state)
+            run(["systemctl", "--user", "start", SPATIAL_SERVICE], timeout=30)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline and sink_index(SPATIAL_SINK) is None:
+                time.sleep(0.15)
+            if sink_index(SPATIAL_SINK) is None:
+                run(["systemctl", "--user", "stop", SPATIAL_SERVICE], timeout=30)
+                raise RuntimeError("Open Quad Spatial did not appear in PipeWire")
+            run(["pactl", "set-default-sink", SPATIAL_SINK])
+            move_sink_inputs(current, SPATIAL_SINK)
+        state["spatialEnabled"] = True
+    else:
+        previous = state.get("spatialPreviousDefault", "imac_fixed")
+        if sink_index(previous) is None:
+            previous = "imac_fixed"
+        if current == SPATIAL_SINK and sink_index(SPATIAL_SINK) is not None:
+            move_sink_inputs(SPATIAL_SINK, previous)
+            run(["pactl", "set-default-sink", previous])
+        elif sink_index(SPATIAL_SINK) is not None:
+            move_sink_inputs(SPATIAL_SINK, previous)
+        run(["systemctl", "--user", "stop", SPATIAL_SERVICE], timeout=30)
+        state["spatialEnabled"] = False
+    save_state(state)
+
+
+def spatial_status():
+    try:
+        return current_sink_state()[2] == SPATIAL_SINK
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def set_camera(enabled):
+    if not CAMERA_AUTH.exists():
+        raise RuntimeError("FaceTime camera USB control is unavailable")
+    value = "1" if enabled else "0"
+    result = subprocess.run(["/usr/bin/pkexec", "/usr/bin/tee", str(CAMERA_AUTH)],
+                            input=value + "\n", text=True, capture_output=True, timeout=45)
+    if result.returncode != 0:
+        message = result.stderr.strip() or "Camera change was cancelled or denied"
+        raise RuntimeError(message)
+    time.sleep(0.2)
+    if CAMERA_AUTH.read_text().strip() != value:
+        raise RuntimeError("Camera did not confirm the requested state")
+
+
+def status(state):
+    return {"routes": state["routes"], "eqEnabled": state["eqEnabled"],
+            "eqGainsFront": state["eqGainsFront"],
+            "eqGainsRear": state["eqGainsRear"],
+            "spatialEnabled": spatial_status(), **camera_status()}
+
+
+def main(argv):
+    state = load_state()
+    action = argv[1] if len(argv) > 1 else "status"
+    message = "Ready"
+    if action == "status":
+        pass
+    elif action == "set-route" and len(argv) == 4:
+        dest, src = argv[2], argv[3]
+        if dest not in CHANNELS or src not in CHANNELS:
+            raise ValueError("Unknown speaker or channel")
+        state["routes"][dest] = src
+        save_state(state)
+        atomic_write(PULSE_CONFIG, pulse_config(state["routes"]))
+        reload_remap(state["routes"])
+        message = "Speaker routing updated"
+    elif action == "camera" and len(argv) == 3 and argv[2] in ("on", "off"):
+        set_camera(argv[2] == "on")
+        message = "Camera " + ("enabled" if argv[2] == "on" else "disabled")
+    elif action == "spatial" and len(argv) == 3 and argv[2] in ("on", "off"):
+        set_spatial_mode(state, argv[2] == "on")
+        message = "Open Quad Spatial enabled" if argv[2] == "on" else "Spatial processing bypassed"
+    elif action == "eq-apply" and len(argv) == 5:
+        for key, raw in (("eqGainsFront", argv[2]), ("eqGainsRear", argv[3])):
+            gains = [max(-12, min(12, int(round(float(x))))) for x in raw.split(",")]
+            if len(gains) != 6:
+                raise ValueError("Expected six EQ band values for each speaker pair")
+            state[key] = gains
+        state["eqEnabled"] = argv[4] == "on"
+        save_state(state)
+        apply_eq(state)
+        message = "Equalizer applied" if state["eqEnabled"] else "Equalizer bypassed"
+    else:
+        raise ValueError("Usage: status | set-route <speaker> <channel> | camera <on|off> | spatial <on|off> | eq-apply <front gains> <rear gains> <on|off>")
+    print(json.dumps({"ok": True, "message": message, **status(state)}))
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv)
+    except Exception as exc:
+        state = load_state()
+        print(json.dumps({"ok": False, "error": str(exc), **status(state)}))
+        sys.exit(1)

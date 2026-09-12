@@ -1,0 +1,14 @@
+[Unit]
+# Copyright © 2026 The Blue View Group Corporation and Frank Perez (frank@blueview.ai).
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+Description=Blue View open-source quad surround processor
+After=pipewire.service
+Requires=pipewire.service
+
+[Service]
+ExecStart=/usr/bin/pipewire -c filter-chain.conf
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

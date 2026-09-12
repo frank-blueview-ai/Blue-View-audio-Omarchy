@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+device-state.json
+*.bak.*
+.DS_Store

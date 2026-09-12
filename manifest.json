@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "fperez.audio",
+  "name": "Blue View Audio",
+  "version": "1.0.0",
+  "author": "The Blue View Group Corporation — Frank Perez (frank@blueview.ai)",
+  "description": "Blue View OS audio routing, live signal levels, camera control, and multiband EQ",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Blue View Audio",
+    "description": "Blue View OS audio routing, live signal levels, camera control, and multiband EQ",
+    "category": "Audio",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.audio"
+  }
+}
