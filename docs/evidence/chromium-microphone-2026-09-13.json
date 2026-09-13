@@ -53,7 +53,7 @@
     "video": false
   },
   "raw_audio_retained": false,
-  "existing_browser_site_retry": "Pending user confirmation after AudioService refresh",
+  "existing_browser_site_retry": "User confirmed: Yes, the microphone connects.",
   "existing_browser_capture_after_refresh": [
     {
       "source": 35189,
@@ -62,5 +62,6 @@
       "muted": false,
       "corked": false
     }
-  ]
+  ],
+  "final_user_confirmation": "User subsequently confirmed: now everything works."
 }
