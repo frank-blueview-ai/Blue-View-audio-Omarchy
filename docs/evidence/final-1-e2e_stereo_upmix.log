@@ -1,0 +1,18 @@
+PulseAudio mono 440 Hz test, peak -34 dBFS, through imac_fixed
+Hardware monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; FL/FR/RL/RR RMS = -71.4 dBFS, -71.4 dBFS, -71.4 dBFS, -71.4 dBFS
+PASS: PulseAudio mono playback reached all four hardware lanes.
+native PipeWire mono 440 Hz test, peak -34 dBFS, through imac_fixed
+Hardware monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; FL/FR/RL/RR RMS = -71.4 dBFS, -71.4 dBFS, -71.4 dBFS, -71.4 dBFS
+PASS: native PipeWire mono playback reached all four hardware lanes.
+ALSA default mono 440 Hz test, peak -34 dBFS, through imac_fixed
+Hardware monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; FL/FR/RL/RR RMS = -71.6 dBFS, -71.6 dBFS, -71.6 dBFS, -71.6 dBFS
+PASS: ALSA default mono playback reached all four hardware lanes.
+PulseAudio stereo 440/880 Hz test, peak -34 dBFS, through imac_fixed
+Hardware monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; FL/FR/RL/RR RMS = -74.4 dBFS, -74.4 dBFS, -71.4 dBFS, -71.4 dBFS
+PASS: PulseAudio stereo playback reached all four hardware lanes.
+native PipeWire stereo 440/880 Hz test, peak -34 dBFS, through imac_fixed
+Hardware monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; FL/FR/RL/RR RMS = -74.4 dBFS, -74.4 dBFS, -71.4 dBFS, -71.4 dBFS
+PASS: native PipeWire stereo playback reached all four hardware lanes.
+ALSA default stereo 440/880 Hz test, peak -34 dBFS, through imac_fixed
+Hardware monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; FL/FR/RL/RR RMS = -74.4 dBFS, -74.4 dBFS, -71.4 dBFS, -71.4 dBFS
+PASS: ALSA default stereo playback reached all four hardware lanes.

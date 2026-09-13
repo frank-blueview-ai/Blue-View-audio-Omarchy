@@ -3,6 +3,7 @@
 # Copyright © 2026 The Blue View Group Corporation and Frank Perez (frank@blueview.ai).
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import json
+import hashlib
 import os
 import re
 import subprocess
@@ -21,7 +22,10 @@ except (OSError, ValueError, TypeError):
     MACHINE_CONFIG = {}
 
 PLUGIN_DIR = CONFIG_HOME / "omarchy/plugins/fperez.audio"
-STATE_FILE = PLUGIN_DIR / "device-state.json"
+STATE_HOME = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state"))
+STATE_FILE = STATE_HOME / "blueview-audio/device-state.json"
+EQ_RUNTIME_FILE = STATE_HOME / "blueview-audio/equalizer-runtime.json"
+LEGACY_STATE_FILE = PLUGIN_DIR / "device-state.json"
 PULSE_CONFIG = CONFIG_HOME / "pipewire/pipewire-pulse.conf.d/40-imac-channel-map.conf"
 WP_CONFIG = CONFIG_HOME / "wireplumber/wireplumber.conf.d/50-imac-equalizer.conf"
 SPATIAL_SERVICE = "blue-view-open-quad.service"
@@ -35,7 +39,7 @@ MASTER = str(os.environ.get(
     MACHINE_CONFIG.get("masterSink", "alsa_output.pci-0000_00_1b.0.analog-surround-40"),
 ))
 CHANNELS = {"front-left", "front-right", "rear-left", "rear-right"}
-DEFAULT_MASTER_MAP = ["rear-left", "rear-right", "front-left", "front-right"]
+DEFAULT_MASTER_MAP = ["front-left", "front-right", "rear-left", "rear-right"]
 MASTER_MAP = MACHINE_CONFIG.get("masterChannelMap", DEFAULT_MASTER_MAP)
 if (not isinstance(MASTER_MAP, list) or len(MASTER_MAP) != 4
         or any(not isinstance(channel, str) for channel in MASTER_MAP)
@@ -43,19 +47,25 @@ if (not isinstance(MASTER_MAP, list) or len(MASTER_MAP) != 4
     MASTER_MAP = DEFAULT_MASTER_MAP
 DEFAULT_STATE = {
     "routes": {
-        "rear-left": "front-right",
-        "rear-right": "rear-right",
-        "front-left": "front-left",
-        "front-right": "rear-left",
+        "rear-left": "front-left",
+        "rear-right": "front-right",
+        "front-left": "rear-left",
+        "front-right": "rear-right",
     },
     "eqEnabled": False,
     "eqGainsFront": [0, 0, 0, 0, 0, 0],
     "eqGainsRear": [0, 0, 0, 0, 0, 0],
+    "mutedSpeakers": {speaker: False for speaker in CHANNELS},
+    "speakerBaseVolumes": {},
+    "speakerBalance": 0,
+    "speakerFade": 0,
     "spatialEnabled": False,
     "spatialPreviousDefault": "imac_fixed",
 }
 EQ_BANDS = [(80, "bq_lowshelf"), (250, "bq_peaking"), (700, "bq_peaking"),
             (2000, "bq_peaking"), (5000, "bq_peaking"), (10000, "bq_highshelf")]
+EQ_GRAPH_PARAM = "audioconvert.filter-graph.0"
+EQ_GRAPH_PROBE = "blue_view_eq_probe:Mult"
 
 
 def atomic_write(path, data):
@@ -67,8 +77,9 @@ def atomic_write(path, data):
 
 def load_state():
     state = json.loads(json.dumps(DEFAULT_STATE))
+    saved_path = STATE_FILE if STATE_FILE.exists() else LEGACY_STATE_FILE
     try:
-        saved = json.loads(STATE_FILE.read_text())
+        saved = json.loads(saved_path.read_text())
         state["routes"] = {**DEFAULT_STATE["routes"], **saved.get("routes", {})}
         state["eqEnabled"] = bool(saved.get("eqEnabled", state["eqEnabled"]))
         legacy = saved.get("eqGains", [0, 0, 0, 0, 0, 0])
@@ -76,12 +87,31 @@ def load_state():
             gains = saved.get(key, legacy)
             if isinstance(gains, list) and len(gains) == 6:
                 state[key] = [max(-12, min(12, int(round(float(v))))) for v in gains]
+        for key in ("speakerBalance", "speakerFade"):
+            state[key] = max(-100, min(100, int(round(float(saved.get(key, 0))))))
+        saved_mutes = saved.get("mutedSpeakers", {})
+        if isinstance(saved_mutes, dict):
+            state["mutedSpeakers"] = {
+                speaker: bool(saved_mutes.get(speaker, False)) for speaker in CHANNELS
+            }
+        saved_volumes = saved.get("speakerBaseVolumes", {})
+        if isinstance(saved_volumes, dict):
+            state["speakerBaseVolumes"] = {
+                speaker: str(volume) for speaker, volume in saved_volumes.items()
+                if speaker in CHANNELS and re.fullmatch(r"[0-9]+(?:\.[0-9]+)?%", str(volume))
+            }
     except (OSError, ValueError, TypeError):
         pass
     for dest, src in state["routes"].items():
         if dest not in CHANNELS or src not in CHANNELS:
             state["routes"] = dict(DEFAULT_STATE["routes"])
             break
+    if saved_path == LEGACY_STATE_FILE and STATE_FILE != LEGACY_STATE_FILE:
+        save_state(state)
+        try:
+            LEGACY_STATE_FILE.unlink()
+        except OSError:
+            pass
     return state
 
 
@@ -131,29 +161,204 @@ def current_sink_state():
     return volume, muted, default
 
 
-def reload_remap(routes):
-    volume, muted, default = current_sink_state()
+def apply_speaker_mutes(state, previous_mutes=None):
+    output_id = master_output_input_id()
+    if output_id is None:
+        return False
+    order, current = sink_input_channel_volumes(output_id)
+    mutes = state.get("mutedSpeakers", {})
+    if previous_mutes is None:
+        previous_mutes = dict(mutes)
+    if not any(mutes.values()) and not any(previous_mutes.values()):
+        return False
+
+    base = state.setdefault("speakerBaseVolumes", {})
+    for speaker in order:
+        was_muted = bool(previous_mutes.get(speaker, False))
+        is_muted = bool(mutes.get(speaker, False))
+        if is_muted and not was_muted:
+            # Save that physical channel's actual level before silencing it.
+            base[speaker] = current[speaker]
+        elif was_muted and not is_muted:
+            # An unmuted channel is currently at 0%; restore its saved level.
+            base.setdefault(speaker, "100%")
+        elif not is_muted and not was_muted and current[speaker] != "0%":
+            # Keep up with level changes made through the system mixer while
+            # this channel is live, so a later unmute restores the new level.
+            base[speaker] = current[speaker]
+
+    desired = ["0%" if mutes.get(speaker, False)
+               else base.get(speaker, current[speaker]) for speaker in order]
+    if any(current[speaker] != desired[index] for index, speaker in enumerate(order)):
+        run(["pactl", "set-sink-input-volume", output_id, *desired])
+    return True
+
+
+def remap_module_id(sink_name):
     modules = run(["pactl", "list", "short", "modules"]).stdout.splitlines()
     for line in modules:
         fields = line.split("\t", 2)
-        if len(fields) == 3 and fields[1] == "module-remap-sink" and "sink_name=imac_fixed" in fields[2]:
-            run(["pactl", "unload-module", fields[0]])
-    run(["pactl", "load-module", "module-remap-sink", f"sink_name=imac_fixed",
-         f"master={MASTER}", "channels=4", f"master_channel_map={','.join(MASTER_MAP)}",
-         f"channel_map={','.join(routes[ch] for ch in MASTER_MAP)}", "remix=no"])
+        if (len(fields) == 3 and fields[1] == "module-remap-sink"
+                and re.search(rf"(?:^|\s)sink_name={re.escape(sink_name)}(?:\s|$)",
+                              fields[2])):
+            return fields[0]
+    return None
+
+
+def load_remap_sink(sink_name, routes):
+    return run([
+        "pactl", "load-module", "module-remap-sink",
+        f"sink_name={sink_name}", f"master={MASTER}", "channels=4",
+        f"master_channel_map={','.join(MASTER_MAP)}",
+        f"channel_map={','.join(routes[ch] for ch in MASTER_MAP)}", "remix=no",
+    ]).stdout.strip()
+
+
+def wait_for_sink(name, present=True):
     deadline = time.monotonic() + 4
     while time.monotonic() < deadline:
-        sinks = run(["pactl", "list", "short", "sinks"]).stdout
-        if "\timac_fixed\t" in sinks:
-            break
-        time.sleep(0.15)
+        exists = sink_index(name) is not None
+        if exists == present:
+            return
+        time.sleep(0.1)
+    condition = "appear" if present else "disappear"
+    raise RuntimeError(f"Audio sink {name} did not {condition}")
+
+
+def reload_remap(routes):
+    volume, muted, default = current_sink_state()
+    staging = "imac_fixed_staging"
+    eq_state = load_state()
+
+    # Build the replacement beside the live sink, then migrate clients before
+    # either sink is removed. Unloading a sink with live Chromium streams can
+    # leave the client attached to Pulse's invalid sink index.
+    stale_staging = remap_module_id(staging)
+    if stale_staging:
+        migrate_sink_inputs(staging, "imac_fixed")
+        run(["pactl", "unload-module", stale_staging])
+        wait_for_sink(staging, present=False)
+        if default == staging:
+            default = "imac_fixed"
+            run(["pactl", "set-default-sink", default])
+
+    load_remap_sink(staging, routes)
+    wait_for_sink(staging)
+    run(["pactl", "set-sink-volume", staging, volume])
+    run(["pactl", "set-sink-mute", staging, muted])
+    # An idle remap sink does not expose audioconvert's filter-graph control
+    # until its node is running. Hold it with a silent client while attaching
+    # the graph, then move real streams only after the replacement is ready.
+    staging_keepalive = start_handoff_keepalive(staging)
+    try:
+        apply_eq_graph(staging, eq_state)
+    except Exception:
+        stop_handoff_keepalive(staging_keepalive)
+        staged_module = remap_module_id(staging)
+        if staged_module:
+            run(["pactl", "unload-module", staged_module])
+        wait_for_sink(staging, present=False)
+        raise
+    else:
+        stop_handoff_keepalive(staging_keepalive)
+    moving_ids = sink_input_ids_for_sink("imac_fixed")
     if default == "imac_fixed":
-        run(["pactl", "set-default-sink", "imac_fixed"])
-    run(["pactl", "set-sink-volume", "imac_fixed", volume])
-    run(["pactl", "set-sink-mute", "imac_fixed", muted])
+        run(["pactl", "set-default-sink", staging])
+
+    # Move real app streams to the staged graph while the old graph is still
+    # alive. PipeWire may briefly report sink 4294967295 during relinking, so
+    # allow the move to settle and roll every original stream back before
+    # removing the stage if the destination still fails.
+    try:
+        migrate_sink_inputs("imac_fixed", staging, timeout=8)
+    except Exception as handoff_error:
+        if default == "imac_fixed":
+            run(["pactl", "set-default-sink", "imac_fixed"])
+        rollback_keepalive = None
+        rollback_error = None
+        try:
+            rollback_keepalive = start_handoff_keepalive("imac_fixed")
+            migrate_sink_input_ids(moving_ids, "imac_fixed", timeout=8)
+        except Exception as error:
+            rollback_error = error
+        finally:
+            stop_handoff_keepalive(rollback_keepalive)
+
+        records = {record["id"]: record for record in sink_input_records()}
+        staging_id = sink_index(staging)
+        streams_left_on_stage = [input_id for input_id in moving_ids
+                                 if input_id in records
+                                 and records[input_id]["sink"] == staging_id]
+        if streams_left_on_stage:
+            if default == "imac_fixed":
+                run(["pactl", "set-default-sink", staging])
+            raise RuntimeError(
+                f"Playback stream(s) {', '.join(streams_left_on_stage)} remain on the "
+                f"live staging sink after handoff failure: {handoff_error}"
+            ) from handoff_error
+        if rollback_error:
+            raise RuntimeError(
+                f"Could not finish the remap or confirm rollback; both sinks were kept: "
+                f"{handoff_error}; rollback: {rollback_error}"
+            ) from handoff_error
+        staged_module = remap_module_id(staging)
+        if staged_module:
+            run(["pactl", "unload-module", staged_module])
+        wait_for_sink(staging, present=False)
+        raise
+
+    old_module = remap_module_id("imac_fixed")
+    if old_module:
+        run(["pactl", "unload-module", old_module])
+    wait_for_sink("imac_fixed", present=False)
+
+    try:
+        load_remap_sink("imac_fixed", routes)
+        wait_for_sink("imac_fixed")
+        run(["pactl", "set-sink-volume", "imac_fixed", volume])
+        run(["pactl", "set-sink-mute", "imac_fixed", muted])
+        stable_keepalive = start_handoff_keepalive("imac_fixed")
+        try:
+            apply_eq_graph("imac_fixed", eq_state)
+        finally:
+            stop_handoff_keepalive(stable_keepalive)
+        migrate_sink_inputs(staging, "imac_fixed")
+        if default == "imac_fixed":
+            run(["pactl", "set-default-sink", "imac_fixed"])
+        staged_module = remap_module_id(staging)
+        if staged_module:
+            run(["pactl", "unload-module", staged_module])
+        wait_for_sink(staging, present=False)
+    except Exception:
+        # Keep playback connected if creation of the stable sink fails. If it
+        # exists, move clients back to it; otherwise the staging sink remains
+        # alive as the safe output instead of orphaning the active streams.
+        if sink_index("imac_fixed") is not None:
+            try:
+                migrate_sink_inputs(staging, "imac_fixed")
+            except Exception:
+                if default == "imac_fixed" and sink_index(staging) is not None:
+                    run(["pactl", "set-default-sink", staging])
+            else:
+                if default == "imac_fixed":
+                    run(["pactl", "set-default-sink", "imac_fixed"])
+                staged_module = remap_module_id(staging)
+                if staged_module:
+                    run(["pactl", "unload-module", staged_module])
+        elif sink_index(staging) is not None and default == "imac_fixed":
+            run(["pactl", "set-default-sink", staging])
+        raise
 
 
-def wp_config(state):
+def speaker_position_gain(speaker, state):
+    balance = max(-100, min(100, state.get("speakerBalance", 0))) / 100
+    fade = max(-100, min(100, state.get("speakerFade", 0))) / 100
+    side = 1 - max(0, balance if speaker.endswith("left") else -balance)
+    pair = 1 - max(0, fade if speaker.startswith("front") else -fade)
+    return side * pair
+
+
+def eq_filter_graph(state):
     flat = [0, 0, 0, 0, 0, 0]
     channel_filters = []
     for index, speaker in enumerate(MASTER_MAP, 1):
@@ -166,23 +371,101 @@ def wp_config(state):
                 (kind, float(freq), float(gain), 0.707 if i in (0, 5) else 1.0)
             )
         channel_filters.append(
-            f"                filters{index} = [\n" + ",\n".join(filters) + "\n                ]"
+            f"filters{index} = [ " + ", ".join(filters) + " ]"
         )
+    inputs = " ".join(f'"blue_view_param_eq:In {channel}"' for channel in range(1, 5))
+    outputs = " ".join(
+        '"blue_view_eq_probe:Out"' if channel == 1
+        else f'"blue_view_param_eq:Out {channel}"'
+        for channel in range(1, 5)
+    )
+    graph = (
+        "{ nodes = [ { type = builtin name = blue_view_param_eq label = param_eq "
+        "config = { " + " ".join(channel_filters) + " } }, "
+        "{ type = builtin name = blue_view_eq_probe label = linear "
+        "control = { Mult = 1.0 Add = 0.0 } } ] "
+        "links = [ { output = \"blue_view_param_eq:Out 1\" "
+        "input = \"blue_view_eq_probe:In\" } ] "
+        f"inputs = [ {inputs} ] outputs = [ {outputs} ] }}"
+    )
+
+    # Position controls are downstream of EQ and independent of the channel
+    # mute volumes. Their unity setting preserves the original graph exactly.
+    if state.get("speakerBalance", 0) or state.get("speakerFade", 0):
+        nodes, links, positioned = [], [], []
+        for channel, speaker in enumerate(MASTER_MAP, 1):
+            name = f"blue_view_position_{channel}"
+            upstream = "blue_view_eq_probe:Out" if channel == 1 else f"blue_view_param_eq:Out {channel}"
+            gain = speaker_position_gain(speaker, state)
+            nodes.append(f'{{ type = builtin name = {name} label = linear control = {{ Mult = {gain:.6f} Add = 0.0 }} }}')
+            links.append(f'{{ output = "{upstream}" input = "{name}:In" }}')
+            positioned.append(f'"{name}:Out"')
+        graph = graph.replace(' ] links = [', ', ' + ', '.join(nodes) + ' ] links = [', 1)
+        graph = graph.replace(' ] inputs = [', ', ' + ', '.join(links) + ' ] inputs = [', 1)
+        graph = graph.replace(f'outputs = [ {outputs} ]', 'outputs = [ ' + ' '.join(positioned) + ' ]')
+    return graph
+
+
+def node_object_serial(sink_name):
+    node_id = node_id_for_sink(sink_name)
+    output = run(["wpctl", "inspect", node_id]).stdout
+    match = re.search(r'object\.serial\s*=\s*"?(\d+)"?', output)
+    if not match:
+        raise RuntimeError(f"PipeWire object serial for {sink_name} is unavailable")
+    return match.group(1)
+
+
+def eq_graph_hash(state):
+    return hashlib.sha256(eq_filter_graph(state).encode()).hexdigest()
+
+
+def apply_eq_graph(sink_name, state):
+    node_id = wait_for_node(sink_name, timeout=10)
+    graph = eq_filter_graph(state)
+    params = "{ params = [ " + json.dumps(EQ_GRAPH_PARAM) + " " + json.dumps(graph) + " ] }"
+    run(["pw-cli", "set-param", node_id, "Props", params], timeout=5)
+    props = run(["pw-cli", "enum-params", node_id, "PropInfo"], timeout=5).stdout
+    if EQ_GRAPH_PROBE not in props:
+        raise RuntimeError(f"Equalizer filter graph was not applied to {sink_name}")
+    if sink_name == "imac_fixed":
+        marker = {"nodeSerial": node_object_serial(sink_name),
+                  "graphHash": hashlib.sha256(graph.encode()).hexdigest()}
+        atomic_write(EQ_RUNTIME_FILE, json.dumps(marker, indent=2) + "\n")
+
+
+def eq_graph_is_applied(state):
+    try:
+        node_id = node_id_for_sink("imac_fixed")
+        props = run(["pw-cli", "enum-params", node_id, "PropInfo"], timeout=5).stdout
+        serial = node_object_serial("imac_fixed")
+    except (RuntimeError, subprocess.CalledProcessError, FileNotFoundError,
+            subprocess.TimeoutExpired):
+        return False
+    if EQ_GRAPH_PROBE not in props:
+        return False
+    expected_hash = eq_graph_hash(state)
+    try:
+        marker = json.loads(EQ_RUNTIME_FILE.read_text())
+        if (marker.get("nodeSerial") == serial
+                and marker.get("graphHash") == expected_hash):
+            return True
+    except (OSError, ValueError, TypeError):
+        pass
+    try:
+        return WP_CONFIG.read_text() == wp_config(state)
+    except OSError:
+        return False
+
+
+def wp_config(state):
+    graph = eq_filter_graph(state)
     return (
         "node.filter-graph.rules = [\n"
         "  {\n"
         "    matches = [ { node.name = \"imac_fixed\" } ]\n"
         "    actions = {\n"
         "      create-filter-graph = [\n"
-        "        {\n"
-        "          nodes = [\n"
-        "            { type = builtin name = blue_view_param_eq label = param_eq\n"
-        "              config = {\n"
-        + "\n".join(channel_filters) + "\n"
-        "              }\n"
-        "            }\n"
-        "          ]\n"
-        "        }\n"
+        "        " + graph + "\n"
         "      ]\n"
         "    }\n"
         "  }\n"
@@ -191,19 +474,65 @@ def wp_config(state):
 
 
 def apply_eq(state):
-    try:
-        default_sink = run(["pactl", "get-default-sink"]).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        default_sink = "imac_fixed"
+    # Set the live audioconvert property in place. Recreating the virtual sink
+    # here would interrupt every client stream; the WirePlumber file also keeps
+    # the selected graph available when a future session creates the node.
     atomic_write(WP_CONFIG, wp_config(state))
-    run(["systemctl", "--user", "restart", "wireplumber.service"], timeout=30)
-    time.sleep(0.4)
+    apply_eq_graph("imac_fixed", state)
+    if any(state["mutedSpeakers"].values()):
+        deadline = time.monotonic() + 5
+        while master_output_input_id() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        if master_output_input_id() is None:
+            raise RuntimeError("Blue View output stream did not return after the EQ update")
+        apply_speaker_mutes(state)
+
+
+def pipewire_default_node(media_type):
+    if media_type not in ("sink", "source"):
+        raise ValueError("Expected sink or source")
     try:
-        sinks = run(["pactl", "list", "short", "sinks"]).stdout
-        if any(line.split("\t", 2)[1] == default_sink for line in sinks.splitlines() if "\t" in line):
-            run(["pactl", "set-default-sink", default_sink])
+        metadata = run(["pw-metadata", "-n", "default"]).stdout
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+        return ""
+    for key in (f"default.audio.{media_type}", f"default.configured.audio.{media_type}"):
+        match = re.search(rf"key:'{re.escape(key)}'\s+value:'([^']*)'", metadata)
+        if not match:
+            continue
+        try:
+            name = json.loads(match.group(1)).get("name", "")
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if isinstance(name, str) and name:
+            return name
+    return ""
+
+
+def wait_for_node(node_name, timeout=10):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            return node_id_for_sink(node_name)
+        except (RuntimeError, subprocess.CalledProcessError, FileNotFoundError,
+                subprocess.TimeoutExpired):
+            time.sleep(0.1)
+    raise RuntimeError(f"PipeWire default node {node_name} did not return after EQ reload")
+
+
+def wait_for_pulse_node(media_type, node_name, timeout=10):
+    collection = "sinks" if media_type == "sink" else "sources"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            output = run(["pactl", "list", "short", collection]).stdout
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            time.sleep(0.1)
+            continue
+        if any(len(fields := line.split("\t", 2)) > 1 and fields[1] == node_name
+               for line in output.splitlines()):
+            return
+        time.sleep(0.1)
+    raise RuntimeError(f"PulseAudio default {media_type} {node_name} did not return after EQ reload")
 
 
 def sink_index(name):
@@ -214,22 +543,299 @@ def sink_index(name):
     return None
 
 
-def move_sink_inputs(source, destination):
-    source_index = sink_index(source)
-    if source_index is None or sink_index(destination) is None:
-        return
+def sink_input_records():
+    records = []
     output = run(["pactl", "list", "sink-inputs"]).stdout
     for block in output.split("Sink Input #")[1:]:
         lines = block.splitlines()
         if not lines:
             continue
-        input_id = lines[0].strip()
         sink_match = re.search(r"^\s*Sink:\s+(\d+)", block, re.MULTILINE)
         node_match = re.search(r'node\.name\s*=\s*"([^"]+)"', block)
-        node_name = node_match.group(1) if node_match else ""
-        if (sink_match and sink_match.group(1) == source_index
-                and not node_name.startswith(("output.", "effect_output."))):
-            run(["pactl", "move-sink-input", input_id, destination])
+        object_match = re.search(r'object\.id\s*=\s*"(\d+)"', block)
+        application_match = re.search(r'application\.name\s*=\s*"([^"]+)"', block)
+        filename_match = re.search(r'media\.filename\s*=\s*"([^"]*)"', block)
+        records.append({
+            "id": lines[0].strip(),
+            "sink": sink_match.group(1) if sink_match else None,
+            "node": node_match.group(1) if node_match else "",
+            "object": object_match.group(1) if object_match else None,
+            "application": application_match.group(1) if application_match else "",
+            "filename": filename_match.group(1) if filename_match else "",
+        })
+    return records
+
+
+def master_output_input_id():
+    master_id = sink_index(MASTER)
+    if master_id is None:
+        return None
+    matches = [record["id"] for record in sink_input_records()
+               if record["sink"] == master_id and record["node"] == "output.imac_fixed"]
+    if len(matches) > 1:
+        raise RuntimeError("Found more than one Blue View hardware output stream")
+    return matches[0] if matches else None
+
+
+def sink_input_channel_volumes(input_id):
+    output = run(["pactl", "list", "sink-inputs"]).stdout
+    for block in output.split("Sink Input #")[1:]:
+        lines = block.splitlines()
+        if not lines or lines[0].strip() != str(input_id):
+            continue
+        volume_line = next((line for line in lines if line.strip().startswith("Volume:")), "")
+        values = re.findall(
+            r"([a-z]+-[a-z]+):\s*\d+\s*/\s*([0-9]+(?:\.[0-9]+)?%)", volume_line
+        )
+        order = [speaker for speaker, _ in values]
+        volumes = dict(values)
+        if len(order) != 4 or set(order) != CHANNELS:
+            raise RuntimeError(f"Could not read four channel levels for sink input {input_id}")
+        return order, volumes
+    raise RuntimeError(f"Blue View hardware output stream {input_id} disappeared")
+
+
+def sink_input_ids_for_sink(name):
+    source_index = sink_index(name)
+    if source_index is None:
+        return []
+    return [record["id"] for record in sink_input_records()
+            if record["sink"] == source_index
+            and not record["node"].startswith(("output.", "effect_output."))
+            # A legacy /dev/zero stream keeps imac_fixed alive for its
+            # remap/EQ graph. It is explicitly pinned to that node and cannot
+            # be moved like a client stream; doing so leaves it at sink
+            # 4294967295 and makes spatial/output handoff report a false error.
+            and not (record["filename"] == "/dev/zero"
+                     and record["application"] in ("pw-cat", "Blue View Audio Handoff Keepalive"))]
+
+
+def migrate_sink_inputs(source, destination, timeout=8):
+    destination_index = sink_index(destination)
+    if destination_index is None:
+        raise RuntimeError(f"Audio sink {destination} is unavailable")
+    input_ids = sink_input_ids_for_sink(source)
+    live_ids = {record["id"] for record in sink_input_records()}
+    input_ids = [input_id for input_id in input_ids if input_id in live_ids]
+    keepalive = start_handoff_keepalive(destination)
+    try:
+        migrate_sink_input_ids(input_ids, destination, timeout)
+    finally:
+        stop_handoff_keepalive(keepalive)
+
+
+def set_default_output(node_id, sink_name):
+    routed_master = False
+    # imac_fixed already owns the physical master ports through its four-channel
+    # loopback. Linking a second application stream directly to that same device
+    # makes WirePlumber reject the occupied ports and leaves the stream unbound.
+    # Keep the built-in output on the Blue View path, which is the same hardware
+    # endpoint with the speaker map and EQ applied.
+    if sink_name == MASTER and sink_index("imac_fixed") is not None:
+        sink_name = "imac_fixed"
+        node_id = node_id_for_sink(sink_name)
+        routed_master = True
+    if sink_index(sink_name) is None:
+        raise RuntimeError(f"Audio sink {sink_name} is unavailable")
+    current = run(["pactl", "get-default-sink"]).stdout.strip()
+    moving_ids = sink_input_ids_for_sink(current) if current != sink_name else []
+    keepalive = start_handoff_keepalive(sink_name) if moving_ids else None
+    try:
+        if moving_ids:
+            # Retarget client streams before changing defaults. On this PipeWire
+            # stack, changing the default first can race WirePlumber's relink and
+            # leave a live Chromium stream at Pulse sink 4294967295.
+            try:
+                migrate_sink_input_ids(moving_ids, sink_name)
+            except Exception as move_error:
+                try:
+                    migrate_sink_input_ids(moving_ids, current)
+                except Exception as rollback_error:
+                    raise RuntimeError(
+                        f"Output handoff to {sink_name} failed ({move_error}); "
+                        f"restoring playback to {current} also failed ({rollback_error})"
+                    ) from move_error
+                raise RuntimeError(
+                    f"Output handoff to {sink_name} failed; playback stayed on {current}: {move_error}"
+                ) from move_error
+        try:
+            run(["pactl", "set-default-sink", sink_name], timeout=3)
+            run(["wpctl", "set-default", node_id], timeout=3)
+        except Exception as default_error:
+            rollback_errors = []
+            try:
+                run(["pactl", "set-default-sink", current], timeout=3)
+            except Exception as rollback_error:
+                rollback_errors.append(f"PulseAudio default: {rollback_error}")
+            try:
+                current_node_id = node_id_for_sink(current)
+                run(["wpctl", "set-default", current_node_id], timeout=3)
+            except Exception as rollback_error:
+                rollback_errors.append(f"PipeWire default: {rollback_error}")
+            if moving_ids:
+                try:
+                    migrate_sink_input_ids(moving_ids, current)
+                except Exception as rollback_error:
+                    rollback_errors.append(f"playback to {current}: {rollback_error}")
+            if rollback_errors:
+                raise RuntimeError(
+                    f"Could not set {sink_name} as default ({default_error}); "
+                    f"rollback problems: {'; '.join(rollback_errors)}"
+                ) from default_error
+            raise
+    finally:
+        stop_handoff_keepalive(keepalive)
+    return routed_master
+
+
+def node_id_for_sink(sink_name):
+    for line in run(["wpctl", "status", "-n"]).stdout.splitlines():
+        match = re.search(r"(\d+)\.\s+([^\s\[]+)", line)
+        if match and match.group(2) == sink_name:
+            return match.group(1)
+    raise RuntimeError(f"PipeWire node {sink_name} is unavailable")
+
+
+def target_object_for_sink(sink_name):
+    node_id = node_id_for_sink(sink_name)
+    output = run(["wpctl", "inspect", node_id]).stdout
+    if (re.search(r'device\.class\s*=\s*"filter"', output)
+            or re.search(r'node\.virtual\s*=\s*"true"', output)):
+        match = re.search(r'object\.serial\s*=\s*"?(\d+)"?', output)
+        if not match:
+            raise RuntimeError(f"PipeWire object serial for {sink_name} is unavailable")
+        return match.group(1)
+    return sink_name
+
+
+def sink_state(sink_name):
+    output = run(["pactl", "list", "sinks"]).stdout
+    for block in output.split("Sink #")[1:]:
+        name = re.search(r"^\s*Name:\s*(\S+)", block, re.MULTILINE)
+        if name and name.group(1) == sink_name:
+            state = re.search(r"^\s*State:\s*(\S+)", block, re.MULTILINE)
+            return state.group(1) if state else "UNKNOWN"
+    return None
+
+
+def stop_handoff_keepalive(process):
+    if process is None:
+        return
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=2)
+
+
+def start_handoff_keepalive(sink_name):
+    # PipeWire can fail to activate links from a live client into the virtual
+    # remap sink while it is idle or suspended. Keep a silent four-channel
+    # stream there during the handoff so active app streams can attach cleanly.
+    if target_object_for_sink(sink_name) == sink_name:
+        return None
+    state = sink_state(sink_name)
+    if state == "RUNNING":
+        return None
+    if state not in ("IDLE", "SUSPENDED"):
+        raise RuntimeError(f"Audio sink {sink_name} is not ready for handoff (state: {state})")
+    process = subprocess.Popen(
+        ["pw-cat", "--playback", "--raw", f"--target={sink_name}",
+         "--format=f32", "--rate=48000", "--channels=4",
+         "--channel-map=FL,FR,RL,RR",
+         "--properties={\"application.name\":\"Blue View Audio Handoff Keepalive\","
+         "\"media.name\":\"Blue View Audio Handoff Keepalive\","
+         "\"node.name\":\"blue-view-audio-handoff-keepalive\"}",
+         "/dev/zero"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    destination_index = sink_index(sink_name)
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            error = process.stderr.read().strip() if process.stderr else ""
+            raise RuntimeError(f"Could not activate audio sink {sink_name}: {error}")
+        connected = any(
+            record["sink"] == destination_index
+            and ((record["node"] == "blue-view-audio-handoff-keepalive"
+                  and record["application"] == "Blue View Audio Handoff Keepalive")
+                 or (record["node"] == "pw-cat" and record["application"] == "pw-cat"))
+            for record in sink_input_records()
+        )
+        if connected and sink_state(sink_name) == "RUNNING":
+            # Allow WirePlumber to finish activating the virtual sink's ports
+            # before asking it to move the live application streams.
+            time.sleep(1.0)
+            return process
+        time.sleep(0.05)
+    stop_handoff_keepalive(process)
+    raise RuntimeError(f"Audio sink {sink_name} stayed suspended before handoff")
+
+
+def clear_legacy_target_node(object_id):
+    metadata = run(["pw-metadata", "-n", "default"]).stdout
+    if re.search(rf"update:\s+id:{re.escape(str(object_id))}\s+key:'target\.node'", metadata):
+        run(["pw-metadata", "-n", "default", "--delete", str(object_id), "target.node"],
+            timeout=3)
+
+
+def set_default_output_by_name(sink_name):
+    set_default_output(node_id_for_sink(sink_name), sink_name)
+
+
+def migrate_sink_input_ids(input_ids, destination, timeout=8):
+    destination_index = sink_index(destination)
+    if destination_index is None:
+        raise RuntimeError(f"Audio sink {destination} is unavailable")
+    input_ids = list(dict.fromkeys(input_ids))
+    initial = {record["id"]: record for record in sink_input_records()}
+    destination_target = target_object_for_sink(destination)
+    for input_id in input_ids:
+        record = initial.get(input_id)
+        if record is None or record["sink"] == destination_index:
+            continue
+        if not record["object"]:
+            raise RuntimeError(f"Playback stream {input_id} has no PipeWire object id")
+        # PipeWire-Pulse's move-sink-input returns success without relinking
+        # this stream on this stack. WirePlumber moves it when target.object is
+        # set to the destination: use object.serial for virtual filter sinks,
+        # and node.name for physical devices on this PipeWire stack. Remove
+        # the deprecated target.node key first so a stale legacy target cannot
+        # override a later move back to the original sink.
+        clear_legacy_target_node(record["object"])
+        run(["pw-metadata", "-n", "default", record["object"],
+             "target.object", destination_target, "Spa:String"], timeout=3)
+    deadline = time.monotonic() + timeout
+    retry_at = time.monotonic() + 0.15
+    retried = set()
+    while time.monotonic() < deadline:
+        records = {record["id"]: record for record in sink_input_records()}
+        pending = [input_id for input_id in input_ids
+                   if input_id in records and records[input_id]["sink"] != destination_index]
+        if not pending:
+            return
+        # WirePlumber may attempt links while a client's ports are still being
+        # renegotiated. Once it reports no sink, a fresh equivalent target
+        # metadata value requests one rescan against the now-created ports.
+        if time.monotonic() >= retry_at:
+            for input_id in pending:
+                record = records[input_id]
+                if record["sink"] == "4294967295" and input_id not in retried:
+                    alternate = destination if destination_target != destination else node_object_serial(destination)
+                    run(["pw-metadata", "-n", "default", record["object"],
+                         "target.object", alternate, "Spa:String"], timeout=3)
+                    retried.add(input_id)
+        time.sleep(0.05)
+    records = {record["id"]: record for record in sink_input_records()}
+    pending = [f"{input_id} (sink {records[input_id]['sink']})"
+               for input_id in input_ids
+               if input_id in records and records[input_id]["sink"] != destination_index]
+    if pending:
+        raise RuntimeError(f"Could not move playback stream(s) {', '.join(pending)} to {destination}")
 
 
 def set_spatial_mode(state, enabled):
@@ -238,8 +844,6 @@ def set_spatial_mode(state, enabled):
         if current not in ("imac_fixed", SPATIAL_SINK):
             raise RuntimeError("Select the iMac four-channel speakers before enabling Open Quad Spatial")
         if current != SPATIAL_SINK:
-            state["spatialPreviousDefault"] = current
-            save_state(state)
             run(["systemctl", "--user", "start", SPATIAL_SERVICE], timeout=30)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline and sink_index(SPATIAL_SINK) is None:
@@ -247,19 +851,40 @@ def set_spatial_mode(state, enabled):
             if sink_index(SPATIAL_SINK) is None:
                 run(["systemctl", "--user", "stop", SPATIAL_SERVICE], timeout=30)
                 raise RuntimeError("Open Quad Spatial did not appear in PipeWire")
-            run(["pactl", "set-default-sink", SPATIAL_SINK])
-            move_sink_inputs(current, SPATIAL_SINK)
+            try:
+                set_default_output_by_name(SPATIAL_SINK)
+            except Exception as switch_error:
+                stranded = any(
+                    record["sink"] == "4294967295"
+                    for record in sink_input_records()
+                    if record["node"] not in ("output.imac_fixed", "effect_output.blue_view_open_quad")
+                )
+                if stranded or sink_input_ids_for_sink(SPATIAL_SINK):
+                    state["spatialPreviousDefault"] = current
+                    state["spatialEnabled"] = True
+                    save_state(state)
+                    raise RuntimeError(
+                        f"Open Quad handoff failed ({switch_error}); processor left running "
+                        "because a playback stream may still target it"
+                    ) from switch_error
+                run(["systemctl", "--user", "stop", SPATIAL_SERVICE], timeout=30)
+                raise RuntimeError(
+                    f"Open Quad handoff failed; playback was restored to {current}: {switch_error}"
+                ) from switch_error
+            state["spatialPreviousDefault"] = current
         state["spatialEnabled"] = True
     else:
         previous = state.get("spatialPreviousDefault", "imac_fixed")
         if sink_index(previous) is None:
             previous = "imac_fixed"
-        if current == SPATIAL_SINK and sink_index(SPATIAL_SINK) is not None:
-            move_sink_inputs(SPATIAL_SINK, previous)
-            run(["pactl", "set-default-sink", previous])
-        elif sink_index(SPATIAL_SINK) is not None:
-            move_sink_inputs(SPATIAL_SINK, previous)
-        run(["systemctl", "--user", "stop", SPATIAL_SERVICE], timeout=30)
+        if sink_index(SPATIAL_SINK) is not None:
+            if current == SPATIAL_SINK:
+                set_default_output_by_name(previous)
+            else:
+                moving_ids = sink_input_ids_for_sink(SPATIAL_SINK)
+                if moving_ids:
+                    migrate_sink_input_ids(moving_ids, previous)
+            run(["systemctl", "--user", "stop", SPATIAL_SERVICE], timeout=30)
         state["spatialEnabled"] = False
     save_state(state)
 
@@ -287,8 +912,14 @@ def set_camera(enabled):
 
 def status(state):
     return {"routes": state["routes"], "eqEnabled": state["eqEnabled"],
+            "eqApplied": eq_graph_is_applied(state),
             "eqGainsFront": state["eqGainsFront"],
             "eqGainsRear": state["eqGainsRear"],
+            "speakerMutes": state["mutedSpeakers"],
+            "speakerBalance": state["speakerBalance"],
+            "speakerFade": state["speakerFade"],
+            "masterSink": MASTER,
+            "speakerRoutingSink": "imac_fixed" if sink_index("imac_fixed") is not None else "",
             "spatialEnabled": spatial_status(), **camera_status()}
 
 
@@ -297,7 +928,9 @@ def main(argv):
     action = argv[1] if len(argv) > 1 else "status"
     message = "Ready"
     if action == "status":
-        pass
+        if any(state["mutedSpeakers"].values()):
+            apply_speaker_mutes(state)
+            save_state(state)
     elif action == "set-route" and len(argv) == 4:
         dest, src = argv[2], argv[3]
         if dest not in CHANNELS or src not in CHANNELS:
@@ -306,7 +939,35 @@ def main(argv):
         save_state(state)
         atomic_write(PULSE_CONFIG, pulse_config(state["routes"]))
         reload_remap(state["routes"])
+        if any(state["mutedSpeakers"].values()):
+            apply_speaker_mutes(state)
+            save_state(state)
         message = "Speaker routing updated"
+    elif action == "set-position" and len(argv) == 4:
+        previous = dict(state)
+        state["speakerBalance"], state["speakerFade"] = [
+            max(-100, min(100, int(round(float(value))))) for value in argv[2:4]
+        ]
+        try:
+            apply_eq(state)
+        except Exception:
+            apply_eq(previous)
+            raise
+        save_state(state)
+        message = "Speaker balance and fade updated"
+    elif action == "set-speaker-mute" and len(argv) == 4:
+        speaker, value = argv[2], argv[3]
+        if speaker not in CHANNELS or value not in ("on", "off"):
+            raise ValueError("Expected a speaker name and on/off mute state")
+        previous_mutes = dict(state["mutedSpeakers"])
+        state["mutedSpeakers"][speaker] = value == "on"
+        apply_speaker_mutes(state, previous_mutes)
+        save_state(state)
+        message = f"{speaker.replace('-', ' ').title()} " + ("muted" if value == "on" else "unmuted")
+    elif action == "set-output" and len(argv) == 4:
+        routed_master = set_default_output(argv[2], argv[3])
+        message = ("Built-in speakers selected via Blue View routing" if routed_master
+                   else "Default audio output updated")
     elif action == "camera" and len(argv) == 3 and argv[2] in ("on", "off"):
         set_camera(argv[2] == "on")
         message = "Camera " + ("enabled" if argv[2] == "on" else "disabled")
@@ -324,7 +985,7 @@ def main(argv):
         apply_eq(state)
         message = "Equalizer applied" if state["eqEnabled"] else "Equalizer bypassed"
     else:
-        raise ValueError("Usage: status | set-route <speaker> <channel> | camera <on|off> | spatial <on|off> | eq-apply <front gains> <rear gains> <on|off>")
+        raise ValueError("Usage: status | set-route <speaker> <channel> | set-speaker-mute <speaker> <on|off> | set-output <node-id> <sink-name> | set-position <balance -100..100> <fade -100..100> | camera <on|off> | spatial <on|off> | eq-apply <front gains> <rear gains> <on|off>")
     print(json.dumps({"ok": True, "message": message, **status(state)}))
 
 

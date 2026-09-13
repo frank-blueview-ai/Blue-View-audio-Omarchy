@@ -1,0 +1,20 @@
+MPV/PipeWire mono measured levels: [-65.10360022357901, -65.10360022357901, -65.10360022357901, -65.10360022357901]
+MPV/PipeWire mono: FL/FR/RL/RR RMS = -65.1 dBFS, -65.1 dBFS, -65.1 dBFS, -65.1 dBFS
+PASS: MPV/PipeWire reached all four lanes.
+MPV/PulseAudio mono measured levels: [-62.14897034211085, -62.14897034211085, -62.14897034211085, -62.14897034211085]
+MPV/PulseAudio mono: FL/FR/RL/RR RMS = -62.1 dBFS, -62.1 dBFS, -62.1 dBFS, -62.1 dBFS
+PASS: MPV/PulseAudio reached all four lanes.
+MPV/ALSA mono measured levels: [-61.90557436845002, -61.90557436845002, -61.90557436845002, -61.90557436845002]
+MPV/ALSA mono: FL/FR/RL/RR RMS = -61.9 dBFS, -61.9 dBFS, -61.9 dBFS, -61.9 dBFS
+PASS: MPV/ALSA reached all four lanes.
+MPV/PipeWire stereo measured levels: [-64.93712825396656, -64.93694906511504, -61.92682831860029, -61.926649203248765]
+MPV/PipeWire stereo: FL/FR/RL/RR RMS = -64.9 dBFS, -64.9 dBFS, -61.9 dBFS, -61.9 dBFS
+PASS: MPV/PipeWire reached all four lanes.
+MPV/PulseAudio stereo measured levels: [-65.21880056377998, -65.21845922887377, -62.20850062842602, -62.20815936685831]
+MPV/PulseAudio stereo: FL/FR/RL/RR RMS = -65.2 dBFS, -65.2 dBFS, -62.2 dBFS, -62.2 dBFS
+PASS: MPV/PulseAudio reached all four lanes.
+MPV/ALSA stereo measured levels: [-64.95511123896375, -64.95515813123279, -61.94481130337493, -61.944858269482275]
+MPV/ALSA stereo: FL/FR/RL/RR RMS = -65.0 dBFS, -65.0 dBFS, -61.9 dBFS, -61.9 dBFS
+PASS: MPV/ALSA reached all four lanes.
+Saved route/EQ/mute state unchanged: PASS
+Default output unchanged: PASS

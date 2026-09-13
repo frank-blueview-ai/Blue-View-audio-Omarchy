@@ -1,0 +1,1255 @@
+{
+  "measurements": [
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 40,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -77.8,
+              "baseline_dbfs": -79.2,
+              "rise_db": 1.4,
+              "above_neighbor_bins_db": 11.8,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -77.1,
+              "baseline_dbfs": -79.0,
+              "rise_db": 1.9,
+              "above_neighbor_bins_db": 11.4,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -79.5,
+              "baseline_dbfs": -79.2,
+              "rise_db": -0.3,
+              "above_neighbor_bins_db": 9.1,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -79.0,
+              "baseline_dbfs": -79.0,
+              "rise_db": 0.0,
+              "above_neighbor_bins_db": 7.1,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -82.1,
+              "baseline_dbfs": -79.2,
+              "rise_db": -2.9,
+              "above_neighbor_bins_db": 2.3,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -80.6,
+              "baseline_dbfs": -79.0,
+              "rise_db": -1.6,
+              "above_neighbor_bins_db": 5.2,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -81.4,
+              "baseline_dbfs": -79.2,
+              "rise_db": -2.2,
+              "above_neighbor_bins_db": 1.6,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -81.7,
+              "baseline_dbfs": -79.0,
+              "rise_db": -2.6,
+              "above_neighbor_bins_db": 2.8,
+              "clear_tone_detected": false
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 63,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -74.9,
+              "baseline_dbfs": -79.7,
+              "rise_db": 4.7,
+              "above_neighbor_bins_db": 8.7,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -77.4,
+              "baseline_dbfs": -80.1,
+              "rise_db": 2.7,
+              "above_neighbor_bins_db": 5.3,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -78.5,
+              "baseline_dbfs": -79.7,
+              "rise_db": 1.2,
+              "above_neighbor_bins_db": 3.3,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -78.7,
+              "baseline_dbfs": -80.1,
+              "rise_db": 1.4,
+              "above_neighbor_bins_db": 4.5,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -83.3,
+              "baseline_dbfs": -79.7,
+              "rise_db": -3.6,
+              "above_neighbor_bins_db": 0.6,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -84.7,
+              "baseline_dbfs": -80.1,
+              "rise_db": -4.6,
+              "above_neighbor_bins_db": 0.8,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -77.3,
+              "baseline_dbfs": -79.7,
+              "rise_db": 2.4,
+              "above_neighbor_bins_db": 1.4,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -77.5,
+              "baseline_dbfs": -80.1,
+              "rise_db": 2.6,
+              "above_neighbor_bins_db": 1.5,
+              "clear_tone_detected": false
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 100,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -82.9,
+              "baseline_dbfs": -86.0,
+              "rise_db": 3.0,
+              "above_neighbor_bins_db": 2.9,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -85.2,
+              "baseline_dbfs": -87.0,
+              "rise_db": 1.7,
+              "above_neighbor_bins_db": -0.3,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -77.0,
+              "baseline_dbfs": -86.0,
+              "rise_db": 8.9,
+              "above_neighbor_bins_db": 8.2,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -77.5,
+              "baseline_dbfs": -87.0,
+              "rise_db": 9.5,
+              "above_neighbor_bins_db": 9.6,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -88.3,
+              "baseline_dbfs": -86.0,
+              "rise_db": -2.3,
+              "above_neighbor_bins_db": -4.0,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -92.3,
+              "baseline_dbfs": -87.0,
+              "rise_db": -5.4,
+              "above_neighbor_bins_db": -5.8,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -70.9,
+              "baseline_dbfs": -86.0,
+              "rise_db": 15.0,
+              "above_neighbor_bins_db": 13.2,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -71.0,
+              "baseline_dbfs": -87.0,
+              "rise_db": 16.0,
+              "above_neighbor_bins_db": 12.9,
+              "clear_tone_detected": false
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 160,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -93.2,
+              "baseline_dbfs": -93.2,
+              "rise_db": 0.0,
+              "above_neighbor_bins_db": -1.7,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -94.6,
+              "baseline_dbfs": -92.4,
+              "rise_db": -2.2,
+              "above_neighbor_bins_db": -2.9,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -71.5,
+              "baseline_dbfs": -93.2,
+              "rise_db": 21.7,
+              "above_neighbor_bins_db": 20.0,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -71.6,
+              "baseline_dbfs": -92.4,
+              "rise_db": 20.8,
+              "above_neighbor_bins_db": 20.1,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -87.6,
+              "baseline_dbfs": -93.2,
+              "rise_db": 5.6,
+              "above_neighbor_bins_db": 7.9,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -92.4,
+              "baseline_dbfs": -92.4,
+              "rise_db": 0.1,
+              "above_neighbor_bins_db": 3.5,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -68.4,
+              "baseline_dbfs": -93.2,
+              "rise_db": 24.8,
+              "above_neighbor_bins_db": 25.4,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -68.0,
+              "baseline_dbfs": -92.4,
+              "rise_db": 24.4,
+              "above_neighbor_bins_db": 26.0,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 250,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -96.4,
+              "baseline_dbfs": -94.7,
+              "rise_db": -1.7,
+              "above_neighbor_bins_db": -4.3,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -95.3,
+              "baseline_dbfs": -93.3,
+              "rise_db": -2.0,
+              "above_neighbor_bins_db": -3.3,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -72.0,
+              "baseline_dbfs": -94.7,
+              "rise_db": 22.6,
+              "above_neighbor_bins_db": 19.1,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -78.3,
+              "baseline_dbfs": -93.3,
+              "rise_db": 15.0,
+              "above_neighbor_bins_db": 14.0,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -98.1,
+              "baseline_dbfs": -94.7,
+              "rise_db": -3.5,
+              "above_neighbor_bins_db": -5.5,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -94.8,
+              "baseline_dbfs": -93.3,
+              "rise_db": -1.5,
+              "above_neighbor_bins_db": -3.6,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -62.8,
+              "baseline_dbfs": -94.7,
+              "rise_db": 31.9,
+              "above_neighbor_bins_db": 32.3,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -61.0,
+              "baseline_dbfs": -93.3,
+              "rise_db": 32.3,
+              "above_neighbor_bins_db": 31.5,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 500,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -95.0,
+              "baseline_dbfs": -100.2,
+              "rise_db": 5.1,
+              "above_neighbor_bins_db": 5.9,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -97.8,
+              "baseline_dbfs": -98.7,
+              "rise_db": 1.0,
+              "above_neighbor_bins_db": 1.1,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -84.4,
+              "baseline_dbfs": -100.2,
+              "rise_db": 15.7,
+              "above_neighbor_bins_db": 13.0,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -70.1,
+              "baseline_dbfs": -98.7,
+              "rise_db": 28.6,
+              "above_neighbor_bins_db": 29.1,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -90.6,
+              "baseline_dbfs": -100.2,
+              "rise_db": 9.5,
+              "above_neighbor_bins_db": 8.1,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -91.9,
+              "baseline_dbfs": -98.7,
+              "rise_db": 6.9,
+              "above_neighbor_bins_db": 8.6,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -70.9,
+              "baseline_dbfs": -100.2,
+              "rise_db": 29.3,
+              "above_neighbor_bins_db": 25.9,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -68.9,
+              "baseline_dbfs": -98.7,
+              "rise_db": 29.8,
+              "above_neighbor_bins_db": 25.3,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 1000,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -76.6,
+              "baseline_dbfs": -108.0,
+              "rise_db": 31.4,
+              "above_neighbor_bins_db": 30.3,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -73.5,
+              "baseline_dbfs": -107.5,
+              "rise_db": 34.1,
+              "above_neighbor_bins_db": 30.9,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -59.4,
+              "baseline_dbfs": -108.0,
+              "rise_db": 48.6,
+              "above_neighbor_bins_db": 46.9,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -58.3,
+              "baseline_dbfs": -107.5,
+              "rise_db": 49.2,
+              "above_neighbor_bins_db": 44.5,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -84.2,
+              "baseline_dbfs": -108.0,
+              "rise_db": 23.8,
+              "above_neighbor_bins_db": 19.6,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -75.5,
+              "baseline_dbfs": -107.5,
+              "rise_db": 32.0,
+              "above_neighbor_bins_db": 30.7,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -65.7,
+              "baseline_dbfs": -108.0,
+              "rise_db": 42.3,
+              "above_neighbor_bins_db": 39.3,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -57.4,
+              "baseline_dbfs": -107.5,
+              "rise_db": 50.1,
+              "above_neighbor_bins_db": 46.8,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 2000,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -56.1,
+              "baseline_dbfs": -112.2,
+              "rise_db": 56.1,
+              "above_neighbor_bins_db": 51.8,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -56.2,
+              "baseline_dbfs": -111.4,
+              "rise_db": 55.2,
+              "above_neighbor_bins_db": 54.7,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -69.5,
+              "baseline_dbfs": -112.2,
+              "rise_db": 42.7,
+              "above_neighbor_bins_db": 40.1,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -71.1,
+              "baseline_dbfs": -111.4,
+              "rise_db": 40.3,
+              "above_neighbor_bins_db": 40.6,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -54.8,
+              "baseline_dbfs": -112.2,
+              "rise_db": 57.5,
+              "above_neighbor_bins_db": 55.5,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -55.3,
+              "baseline_dbfs": -111.4,
+              "rise_db": 56.1,
+              "above_neighbor_bins_db": 53.6,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -66.5,
+              "baseline_dbfs": -112.2,
+              "rise_db": 45.7,
+              "above_neighbor_bins_db": 47.6,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -61.8,
+              "baseline_dbfs": -111.4,
+              "rise_db": 49.6,
+              "above_neighbor_bins_db": 47.7,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 4000,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -65.7,
+              "baseline_dbfs": -113.7,
+              "rise_db": 48.0,
+              "above_neighbor_bins_db": 46.1,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -57.9,
+              "baseline_dbfs": -112.6,
+              "rise_db": 54.7,
+              "above_neighbor_bins_db": 56.5,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -71.5,
+              "baseline_dbfs": -113.7,
+              "rise_db": 42.3,
+              "above_neighbor_bins_db": 42.3,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -76.2,
+              "baseline_dbfs": -112.6,
+              "rise_db": 36.4,
+              "above_neighbor_bins_db": 38.5,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -62.0,
+              "baseline_dbfs": -113.7,
+              "rise_db": 51.7,
+              "above_neighbor_bins_db": 51.2,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -58.5,
+              "baseline_dbfs": -112.6,
+              "rise_db": 54.2,
+              "above_neighbor_bins_db": 57.1,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -80.0,
+              "baseline_dbfs": -113.7,
+              "rise_db": 33.7,
+              "above_neighbor_bins_db": 33.4,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -71.0,
+              "baseline_dbfs": -112.6,
+              "rise_db": 41.6,
+              "above_neighbor_bins_db": 43.9,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 8000,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -68.6,
+              "baseline_dbfs": -108.7,
+              "rise_db": 40.1,
+              "above_neighbor_bins_db": 39.2,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -76.1,
+              "baseline_dbfs": -109.7,
+              "rise_db": 33.5,
+              "above_neighbor_bins_db": 33.2,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -78.3,
+              "baseline_dbfs": -108.7,
+              "rise_db": 30.4,
+              "above_neighbor_bins_db": 29.9,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -100.4,
+              "baseline_dbfs": -109.7,
+              "rise_db": 9.3,
+              "above_neighbor_bins_db": 12.9,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -75.5,
+              "baseline_dbfs": -108.7,
+              "rise_db": 33.2,
+              "above_neighbor_bins_db": 37.8,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -77.5,
+              "baseline_dbfs": -109.7,
+              "rise_db": 32.1,
+              "above_neighbor_bins_db": 33.7,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -75.2,
+              "baseline_dbfs": -108.7,
+              "rise_db": 33.6,
+              "above_neighbor_bins_db": 35.7,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -73.8,
+              "baseline_dbfs": -109.7,
+              "rise_db": 35.9,
+              "above_neighbor_bins_db": 39.0,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 12000,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -68.3,
+              "baseline_dbfs": -110.2,
+              "rise_db": 41.9,
+              "above_neighbor_bins_db": 43.2,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -73.0,
+              "baseline_dbfs": -113.0,
+              "rise_db": 40.0,
+              "above_neighbor_bins_db": 38.5,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -85.0,
+              "baseline_dbfs": -110.2,
+              "rise_db": 25.2,
+              "above_neighbor_bins_db": 26.6,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -81.2,
+              "baseline_dbfs": -113.0,
+              "rise_db": 31.8,
+              "above_neighbor_bins_db": 32.5,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -71.2,
+              "baseline_dbfs": -110.2,
+              "rise_db": 39.0,
+              "above_neighbor_bins_db": 41.1,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -69.2,
+              "baseline_dbfs": -113.0,
+              "rise_db": 43.8,
+              "above_neighbor_bins_db": 41.0,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -93.6,
+              "baseline_dbfs": -110.2,
+              "rise_db": 16.6,
+              "above_neighbor_bins_db": 14.8,
+              "clear_tone_detected": false
+            },
+            {
+              "tone_dbfs": -86.2,
+              "baseline_dbfs": -113.0,
+              "rise_db": 26.8,
+              "above_neighbor_bins_db": 26.0,
+              "clear_tone_detected": true
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    },
+    {
+      "sink": "imac_fixed",
+      "bindings": [
+        {
+          "source": "alsa_input.pci-0000_00_1b.0.analog-stereo",
+          "format": "s32le 2ch 48000Hz",
+          "channel_map": "front-left,front-right"
+        },
+        {
+          "source": "alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor",
+          "format": "s32le 4ch 48000Hz",
+          "channel_map": "front-left,front-right,rear-left,rear-right"
+        }
+      ],
+      "frequency_hz": 16000,
+      "stimulus_peak_dbfs": -30,
+      "channels": [
+        {
+          "logical_channel": "front-left",
+          "monitor_lane": "rear-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -80.9,
+              "baseline_dbfs": -111.7,
+              "rise_db": 30.8,
+              "above_neighbor_bins_db": 32.0,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -74.3,
+              "baseline_dbfs": -98.7,
+              "rise_db": 24.3,
+              "above_neighbor_bins_db": 35.1,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "front-right",
+          "monitor_lane": "rear-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -87.2,
+              "baseline_dbfs": -111.7,
+              "rise_db": 24.5,
+              "above_neighbor_bins_db": 26.3,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -84.7,
+              "baseline_dbfs": -98.7,
+              "rise_db": 14.0,
+              "above_neighbor_bins_db": 24.2,
+              "clear_tone_detected": false
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-left",
+          "monitor_lane": "front-left",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -72.6,
+              "baseline_dbfs": -111.7,
+              "rise_db": 39.1,
+              "above_neighbor_bins_db": 39.4,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -78.5,
+              "baseline_dbfs": -98.7,
+              "rise_db": 20.2,
+              "above_neighbor_bins_db": 30.5,
+              "clear_tone_detected": true
+            }
+          ]
+        },
+        {
+          "logical_channel": "rear-right",
+          "monitor_lane": "front-right",
+          "monitor_tone_dbfs": -54.1,
+          "microphones": [
+            {
+              "tone_dbfs": -90.1,
+              "baseline_dbfs": -111.7,
+              "rise_db": 21.6,
+              "above_neighbor_bins_db": 25.2,
+              "clear_tone_detected": true
+            },
+            {
+              "tone_dbfs": -88.0,
+              "baseline_dbfs": -98.7,
+              "rise_db": 10.6,
+              "above_neighbor_bins_db": 18.4,
+              "clear_tone_detected": false
+            }
+          ]
+        }
+      ],
+      "interpretation": "Mic tone rise is evidence to review, not a pass for perceived loudness or speaker location."
+    }
+  ],
+  "saved_controls_unchanged": true,
+  "raw_audio_retained": false,
+  "interpretation": "Combined speaker/room/uncalibrated-mic response. Weak pickup does not prove a speaker cutoff. No automatic EQ, crossover, or driver-limit claim is made."
+}

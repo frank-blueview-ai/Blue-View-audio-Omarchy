@@ -1,0 +1,11 @@
+Monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; stream and master levels are checked for restoration
+front-left: baseline -59.4 dBFS, muted -240.0 dBFS (-180.6 dB), restored -59.4 dBFS (+0.0 dB), other lanes live -59.4…-59.4 dBFS PASS
+front-right: baseline -59.4 dBFS, muted -240.0 dBFS (-180.6 dB), restored -59.4 dBFS (+0.0 dB), other lanes live -59.4…-59.4 dBFS PASS
+rear-left: baseline -59.4 dBFS, muted -240.0 dBFS (-180.6 dB), restored -59.4 dBFS (+0.0 dB), other lanes live -59.4…-59.4 dBFS PASS
+rear-right: baseline -59.4 dBFS, muted -240.0 dBFS (-180.6 dB), restored -59.4 dBFS (+0.0 dB), other lanes live -59.4…-59.4 dBFS PASS
+all speaker mutes off: PASS
+routes and EQ unchanged: PASS
+hardware master unchanged: PASS
+output stream levels restored: PASS
+default output unchanged: PASS
+PASS: each control muted one hardware lane, preserved the other three, and restored levels.

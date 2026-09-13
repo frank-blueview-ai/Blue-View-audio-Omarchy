@@ -1,0 +1,9 @@
+Hardware monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor; native PipeWire stream ID 39739
+built-in: stream ids ['39739']; FL/FR/RL/RR RMS = -51.1 dBFS, -51.1 dBFS, -48.1 dBFS, -48.1 dBFS
+open-quad: stream ids ['39739']; FL/FR/RL/RR RMS = -55.3 dBFS, -59.9 dBFS, -48.1 dBFS, -48.1 dBFS
+returned: stream ids ['39739']; FL/FR/RL/RR RMS = -51.1 dBFS, -51.1 dBFS, -48.1 dBFS, -48.1 dBFS
+100 ms output-window floor during handoffs: -54.2 dBFS across 78 windows PASS
+routing/EQ/mute/spatial state unchanged: PASS
+default and master output restored: PASS
+saved device state unchanged: PASS
+PASS: one continuous application stream survived both output switches.

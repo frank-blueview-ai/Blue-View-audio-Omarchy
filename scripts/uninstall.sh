@@ -12,10 +12,15 @@ if [[ -x "$BIN_DIR/imac-audio-controls" ]]; then
   "$BIN_DIR/imac-audio-controls" spatial off >/dev/null 2>&1 || true
 fi
 systemctl --user stop blue-view-open-quad.service >/dev/null 2>&1 || true
-rm -f "$PLUGIN_DIR/Panel.qml" "$PLUGIN_DIR/Model.js" "$PLUGIN_DIR/manifest.json" \
+rm -f "$PLUGIN_DIR/Panel.qml" "$PLUGIN_DIR/CameraMonitor.qml" "$PLUGIN_DIR/Model.js" "$PLUGIN_DIR/manifest.json" \
   "$PLUGIN_DIR/blueview-logo-dark.svg"
 rmdir "$PLUGIN_DIR" 2>/dev/null || true
 rm -f "$BIN_DIR/imac-audio-controls" \
+  "$CONFIG_HOME/pipewire/pipewire-pulse.conf.d/40-blue-view-stereo-upmix.conf" \
+  "$CONFIG_HOME/pipewire/client.conf.d/40-blue-view-stereo-upmix.conf" \
+  "$CONFIG_HOME/pipewire/jack.conf.d/40-blue-view-jack.conf" \
+  "$CONFIG_HOME/pipewire/pipewire-pulse.conf.d/45-blue-view-quality.conf" \
+  "$CONFIG_HOME/pipewire/client.conf.d/45-blue-view-quality.conf" \
   "$CONFIG_HOME/pipewire/filter-chain.conf.d/50-blue-view-open-quad.conf" \
   "$CONFIG_HOME/systemd/user/blue-view-open-quad.service"
 systemctl --user daemon-reload

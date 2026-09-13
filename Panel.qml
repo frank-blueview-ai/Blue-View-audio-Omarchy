@@ -78,6 +78,8 @@ Panel {
 
   property var cachedAudioSinks: []
   property var cachedAudioSources: []
+  property string masterSinkName: ""
+  property string speakerRoutingSinkName: ""
 
   readonly property var rawAudioSinks: {
     var list = []
@@ -153,10 +155,16 @@ Panel {
 
   readonly property string controlScript: Quickshell.env("HOME") + "/.local/bin/imac-audio-controls"
   property var speakerRoutes: ({
-    "rear-left": "front-right",
-    "rear-right": "rear-right",
-    "front-left": "front-left",
-    "front-right": "rear-left"
+    "rear-left": "front-left",
+    "rear-right": "front-right",
+    "front-left": "rear-left",
+    "front-right": "rear-right"
+  })
+  property var speakerMutes: ({
+    "front-left": false,
+    "front-right": false,
+    "rear-left": false,
+    "rear-right": false
   })
   readonly property var speakerDestinations: [
     { value: "rear-left", label: "Rear Left speaker" },
@@ -166,12 +174,16 @@ Panel {
   ]
   readonly property var speakerChoices: ["Front Left", "Front Right", "Rear Left", "Rear Right"]
   readonly property var speakerChoiceValues: ["front-left", "front-right", "rear-left", "rear-right"]
+  property bool routingExpanded: false
+  property int speakerBalance: 0
+  property int speakerFade: 0
   property bool cameraAvailable: false
-  property bool cameraEnabled: true
+  property bool cameraEnabled: false
   property bool controlBusy: false
   property string controlMessage: ""
   property bool spatialEnabled: false
   property bool eqEnabled: false
+  property bool eqApplied: false
   property string eqPair: "front"
   property var eqGainsFront: [0, 0, 0, 0, 0, 0]
   property var eqGainsRear: [0, 0, 0, 0, 0, 0]
@@ -198,10 +210,19 @@ Panel {
     try {
       var result = JSON.parse(String(raw))
       if (result.routes) speakerRoutes = result.routes
+      if (result.speakerMutes) speakerMutes = result.speakerMutes
+      if (!positionApplyTimer.running && !balanceSlider.pressed && !fadeSlider.pressed) {
+        if (result.speakerBalance !== undefined) speakerBalance = result.speakerBalance
+        if (result.speakerFade !== undefined) speakerFade = result.speakerFade
+      }
+      if (result.masterSink !== undefined) masterSinkName = String(result.masterSink || "")
+      if (result.speakerRoutingSink !== undefined)
+        speakerRoutingSinkName = String(result.speakerRoutingSink || "")
       if (result.cameraAvailable !== undefined) cameraAvailable = result.cameraAvailable
       if (result.cameraEnabled !== undefined) cameraEnabled = result.cameraEnabled
       if (result.spatialEnabled !== undefined) spatialEnabled = result.spatialEnabled
       if (result.eqEnabled !== undefined) eqEnabled = result.eqEnabled
+      if (result.eqApplied !== undefined) eqApplied = result.eqApplied
       if (result.eqGainsFront && result.eqGainsFront.length === 6) {
         eqGainsFront = result.eqGainsFront.slice()
         if (!eqDirty) eqDraftFront = result.eqGainsFront.slice()
@@ -219,6 +240,7 @@ Panel {
         eqDraftFront = eqGainsFront.slice()
         eqDraftRear = eqGainsRear.slice()
       }
+      scheduleDisplayAudioModelRefresh()
     } catch (e) {
       controlMessage = "Could not read audio control status"
     }
@@ -227,6 +249,10 @@ Panel {
   function setSpeakerRoute(destination, choiceIndex) {
     if (choiceIndex < 0 || choiceIndex >= speakerChoiceValues.length) return
     runControl(["set-route", destination, speakerChoiceValues[choiceIndex]])
+  }
+
+  function setSpeakerMute(speaker, muted) {
+    runControl(["set-speaker-mute", speaker, muted ? "on" : "off"])
   }
 
   function setEqGain(index, value) {
@@ -261,6 +287,18 @@ Panel {
   function openEqWindow() {
     eqWindow.visible = true
     if (!deviceControlProc.running) runControl(["status"])
+  }
+
+  Timer {
+    id: positionApplyTimer
+    interval: 250
+    onTriggered: {
+      if (balanceSlider.pressed || fadeSlider.pressed || deviceControlProc.running) {
+        restart()
+        return
+      }
+      root.runControl(["set-position", String(root.speakerBalance), String(root.speakerFade)])
+    }
   }
 
   onRawAudioSinksChanged: if (rawAudioSinks.length > 0) cachedAudioSinks = rawAudioSinks
@@ -424,6 +462,7 @@ Panel {
 
   onOpenedChanged: {
     if (opened) {
+      if (!deviceControlProc.running) root.runControl(["status"])
       refreshDisplayAudioModels()
       focusSection = "output"
       selectedIndex = -1  // first keyboard cursor reveal starts on the output slider
@@ -445,7 +484,20 @@ Panel {
 
   function refreshDisplayAudioModels() {
     if (!opened) return
-    displayAudioSinks = listSnapshot(audioSinks)
+    var visibleSinks = audioSinks.slice()
+    var hasSpeakerRoutingSink = false
+    for (var i = 0; i < visibleSinks.length; i++) {
+      if (String(visibleSinks[i].name) === speakerRoutingSinkName) {
+        hasSpeakerRoutingSink = true
+        break
+      }
+    }
+    if (hasSpeakerRoutingSink && masterSinkName) {
+      visibleSinks = visibleSinks.filter(function(node) {
+        return String(node.name) !== masterSinkName
+      })
+    }
+    displayAudioSinks = listSnapshot(visibleSinks)
     displayAudioSources = listSnapshot(audioSources)
     displayAudioStreams = listSnapshot(audioStreams)
     clampCursor()
@@ -577,10 +629,10 @@ Panel {
 
   function setDefaultSink(node) {
     if (!node) return
-    Pipewire.preferredDefaultAudioSink = node
     if (node.id !== undefined && node.name) {
       Quickshell.execDetached([
-        "omarchy-audio-output-set-default",
+        "imac-audio-controls",
+        "set-output",
         String(node.id),
         String(node.name)
       ])
@@ -615,6 +667,7 @@ Panel {
   }
 
   function nodeLabel(node) {
+    if (node && String(node.name) === "imac_fixed") return "Blue View Built-in Speakers"
     return Model.nodeLabel(node)
   }
 
@@ -951,7 +1004,7 @@ Panel {
 
               PanelSectionHeader {
                 id: outputHeader
-                text: "OUTPUT"
+                text: "OUTPUT VOLUME"
                 foreground: root.bar.foreground
                 fontFamily: root.bar.fontFamily
                 anchors.left: parent.left
@@ -1008,177 +1061,7 @@ Panel {
               }
             }
 
-            Repeater {
-              model: root.displayAudioSinks
 
-              SinkRow {
-                required property var modelData
-                required property int index
-                width: panelColumn.width
-                node: modelData
-                rowIndex: index
-              }
-            }
-          }
-
-          // ---- EQ routing and tuning ----
-          PanelSeparator {
-            foreground: root.bar.foreground
-          }
-
-          Column {
-            width: parent.width
-            spacing: Style.space(8)
-
-            PanelSectionHeader {
-              text: "FOUR-CHANNEL ROUTING"
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-            }
-
-            Text {
-              text: "Choose which audio channel each speaker plays."
-              color: Qt.darker(root.bar.foreground, 1.35)
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-              width: parent.width
-            }
-
-            Repeater {
-              model: root.speakerDestinations
-
-              Item {
-                required property var modelData
-                width: parent.width
-                height: routeRow.implicitHeight
-
-                Row {
-                  id: routeRow
-                  width: parent.width
-                  spacing: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-
-                  Text {
-                    text: modelData.label
-                    color: root.bar.foreground
-                    font.family: root.bar.fontFamily
-                    font.pixelSize: Style.font.body
-                    verticalAlignment: Text.AlignVCenter
-                    width: parent.width - routeChoice.width - Style.space(8)
-                    elide: Text.ElideRight
-                  }
-
-                  ComboBox {
-                    id: routeChoice
-                    width: Style.space(150)
-                    model: root.speakerChoices
-                    currentIndex: root.routeChoiceIndex(modelData.value)
-                    enabled: !root.controlBusy
-                    font.family: root.bar.fontFamily
-                    font.pixelSize: Style.font.caption
-                    onActivated: function(index) { root.setSpeakerRoute(modelData.value, index) }
-                  }
-                }
-              }
-            }
-
-            Rectangle {
-              width: parent.width
-              height: Style.space(36)
-              radius: Style.space(6)
-              color: Util.alpha(root.bar.foreground, eqOpenMouse.containsMouse ? 0.13 : 0.07)
-              border.width: 1
-              border.color: Util.alpha(root.bar.foreground, 0.18)
-
-              Text {
-                anchors.centerIn: parent
-                text: "OPEN EQUALIZER + MULTIWAVE DISPLAY"
-                color: root.bar.foreground
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-              }
-
-              MouseArea {
-                id: eqOpenMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: root.openEqWindow()
-              }
-            }
-
-            PanelSeparator {
-              foreground: root.bar.foreground
-            }
-
-            PanelSectionHeader {
-              text: "SPATIAL AUDIO"
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-            }
-
-            Row {
-              width: parent.width
-              spacing: Style.space(8)
-              Text {
-                width: parent.width - openSpatialSwitch.width - Style.space(8)
-                text: root.spatialEnabled ? "OPEN QUAD SPATIAL · ACTIVE" : "OPEN QUAD SPATIAL · OFF"
-                color: root.bar.foreground
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.body
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-              }
-              ToggleSwitch {
-                id: openSpatialSwitch
-                checked: root.spatialEnabled
-                foreground: root.bar.foreground
-                enabled: !root.controlBusy
-                onToggled: root.setSpatialEnabled(checked)
-              }
-            }
-
-            Text {
-              width: parent.width
-              text: "Open-source PipeWire quad upmix: adds a phase-shaped rear fill to stereo. It is not Dolby Atmos and has no height/object decoding."
-              color: Qt.darker(root.bar.foreground, 1.35)
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-            }
-
-            Rectangle {
-              width: parent.width
-              height: Style.space(34)
-              radius: Style.space(6)
-              color: Util.alpha(root.bar.foreground, dolbyAccessMouse.containsMouse ? 0.13 : 0.07)
-              border.width: 1
-              border.color: Util.alpha(root.bar.foreground, 0.18)
-              Text {
-                anchors.centerIn: parent
-                text: "DOLBY ATMOS FOR HEADPHONES · OFFICIAL"
-                color: root.bar.foreground
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-              }
-              MouseArea {
-                id: dolbyAccessMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: Qt.openUrlExternally("https://www.dolby.com/experience/headphones/")
-              }
-            }
-
-            Text {
-              width: parent.width
-              text: "Dolby purchase and activation happen in Dolby Access on Windows/Xbox. Linux has no supported Dolby license API for this PipeWire applet."
-              color: Qt.darker(root.bar.foreground, 1.35)
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-            }
           }
 
           // ---- Input ----
@@ -1198,7 +1081,7 @@ Panel {
 
               PanelSectionHeader {
                 id: microphoneHeader
-                text: "INPUT"
+                text: "MIC VOLUME"
                 foreground: root.bar.foreground
                 fontFamily: root.bar.fontFamily
                 anchors.left: parent.left
@@ -1310,6 +1193,126 @@ Panel {
               }
             }
 
+
+          }
+
+
+          Column {
+            width: parent.width
+            spacing: Style.space(4)
+            Text {
+              width: parent.width
+              text: "BALANCE · " + (root.speakerBalance === 0 ? "Center"
+                    : Math.abs(root.speakerBalance) + "% toward " + (root.speakerBalance < 0 ? "Left" : "Right"))
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+            Slider {
+              id: balanceSlider
+              width: parent.width
+              from: -100
+              to: 100
+              stepSize: 1
+              value: root.speakerBalance
+              onMoved: { root.speakerBalance = Math.round(value); positionApplyTimer.restart() }
+              Accessible.name: "Left-right speaker balance"
+            }
+            Row {
+              width: parent.width
+              Text { width: parent.width / 2; text: "Left"; color: root.bar.foreground; font.pixelSize: Style.font.caption }
+              Text { width: parent.width / 2; text: "Right"; horizontalAlignment: Text.AlignRight; color: root.bar.foreground; font.pixelSize: Style.font.caption }
+            }
+            Text {
+              width: parent.width
+              text: "FADE · " + (root.speakerFade === 0 ? "Center"
+                    : Math.abs(root.speakerFade) + "% toward " + (root.speakerFade < 0 ? "Front" : "Rear"))
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+            Slider {
+              id: fadeSlider
+              width: parent.width
+              from: -100
+              to: 100
+              stepSize: 1
+              value: root.speakerFade
+              onMoved: { root.speakerFade = Math.round(value); positionApplyTimer.restart() }
+              Accessible.name: "Front-rear speaker fade"
+            }
+            Row {
+              width: parent.width
+              Text { width: parent.width / 2; text: "Front"; color: root.bar.foreground; font.pixelSize: Style.font.caption }
+              Text { width: parent.width / 2; text: "Rear"; horizontalAlignment: Text.AlignRight; color: root.bar.foreground; font.pixelSize: Style.font.caption }
+            }
+            Button {
+              text: "Center balance and fade"
+              onClicked: { root.speakerBalance = 0; root.speakerFade = 0; positionApplyTimer.restart() }
+            }
+          }
+
+          // ---- Per-app streams ----
+          PanelSeparator {
+            visible: root.displayAudioStreams.length > 0
+            foreground: root.bar.foreground
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.space(10)
+            visible: root.displayAudioStreams.length > 0
+
+            PanelSectionHeader {
+              text: "APPLICATION VOLUMES"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+            }
+
+            Repeater {
+              model: root.displayAudioStreams
+
+              StreamRow {
+                required property var modelData
+                required property int index
+                width: panelColumn.width
+                node: modelData
+                rowIndex: index
+              }
+            }
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.space(6)
+            visible: root.displayAudioSinks.length > 0
+            PanelSectionHeader {
+              text: "OUTPUT DEVICE"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+            }
+            Repeater {
+              model: root.displayAudioSinks
+
+              SinkRow {
+                required property var modelData
+                required property int index
+                width: panelColumn.width
+                node: modelData
+                rowIndex: index
+              }
+            }
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.space(6)
+            visible: root.displayAudioSources.length > 0
+            PanelSectionHeader {
+              text: "MICROPHONE DEVICE"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+            }
             Repeater {
               model: root.displayAudioSources
 
@@ -1320,6 +1323,212 @@ Panel {
                 node: modelData
                 rowIndex: index
               }
+            }
+          }
+
+          // ---- EQ routing and tuning ----
+          PanelSeparator {
+            foreground: root.bar.foreground
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.space(8)
+
+            ToolButton {
+              width: parent.width
+              text: (root.routingExpanded ? "▾  " : "▸  ") + "FOUR-CHANNEL ROUTING"
+              Accessible.name: "Four-channel routing"
+              Accessible.description: root.routingExpanded ? "Expanded" : "Collapsed"
+              onClicked: root.routingExpanded = !root.routingExpanded
+              contentItem: Text {
+                text: parent.text
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                verticalAlignment: Text.AlignVCenter
+              }
+            }
+
+            Column {
+              width: parent.width
+              spacing: Style.space(8)
+              visible: root.routingExpanded
+            Text {
+              text: "Stereo playback fills all four speakers; choose the source channel for each speaker."
+              color: Qt.darker(root.bar.foreground, 1.35)
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+              width: parent.width
+            }
+
+            Repeater {
+              model: root.speakerDestinations
+
+              Item {
+                required property var modelData
+                width: parent.width
+                height: routeRow.implicitHeight
+
+                Row {
+                  id: routeRow
+                  width: parent.width
+                  spacing: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+
+                  Text {
+                    text: modelData.label
+                    color: root.bar.foreground
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.body
+                    verticalAlignment: Text.AlignVCenter
+                    width: parent.width - routeChoice.width - speakerMuteStatus.width
+                      - speakerMuteSwitch.implicitWidth - Style.space(24)
+                    elide: Text.ElideRight
+                  }
+
+                  ComboBox {
+                    id: routeChoice
+                    width: Style.space(138)
+                    model: root.speakerChoices
+                    currentIndex: root.routeChoiceIndex(modelData.value)
+                    enabled: !root.controlBusy
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.caption
+                    onActivated: function(index) { root.setSpeakerRoute(modelData.value, index) }
+                  }
+
+                  Text {
+                    id: speakerMuteStatus
+                    width: Style.space(44)
+                    text: root.speakerMutes[modelData.value] ? "MUTED" : "LIVE"
+                    color: root.speakerMutes[modelData.value]
+                      ? Color.accent : Qt.darker(root.bar.foreground, 1.25)
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.caption
+                    horizontalAlignment: Text.AlignRight
+                    verticalAlignment: Text.AlignVCenter
+                  }
+
+                  ToggleSwitch {
+                    id: speakerMuteSwitch
+                    checked: !root.speakerMutes[modelData.value]
+                    busy: root.controlBusy
+                    foreground: root.bar.foreground
+                    onToggled: root.setSpeakerMute(modelData.value, checked)
+
+                    PanelToolTip {
+                      visible: speakerMuteSwitch.containsMouse
+                      text: root.speakerMutes[modelData.value]
+                        ? "Unmute " + modelData.label : "Mute " + modelData.label
+                      fontFamily: root.bar.fontFamily
+                    }
+                  }
+                }
+              }
+            }
+
+
+
+            }
+
+            Rectangle {
+              width: parent.width
+              height: Style.space(36)
+              radius: Style.space(6)
+              color: Util.alpha(root.bar.foreground, eqOpenMouse.containsMouse ? 0.13 : 0.07)
+              border.width: 1
+              border.color: Util.alpha(root.bar.foreground, 0.18)
+
+              Text {
+                anchors.centerIn: parent
+                text: "OPEN EQUALIZER + MULTIWAVE DISPLAY"
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+
+              MouseArea {
+                id: eqOpenMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: root.openEqWindow()
+              }
+            }
+
+            PanelSeparator {
+              foreground: root.bar.foreground
+            }
+
+            PanelSectionHeader {
+              text: "SPATIAL AUDIO"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+            }
+
+            Row {
+              width: parent.width
+              spacing: Style.space(8)
+              Text {
+                width: parent.width - openSpatialSwitch.width - Style.space(8)
+                text: root.spatialEnabled ? "OPEN QUAD SPATIAL · ACTIVE" : "OPEN QUAD SPATIAL · OFF"
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.body
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+              }
+              ToggleSwitch {
+                id: openSpatialSwitch
+                checked: root.spatialEnabled
+                foreground: root.bar.foreground
+                enabled: !root.controlBusy
+                onToggled: root.setSpatialEnabled(checked)
+              }
+            }
+
+            Text {
+              width: parent.width
+              text: "Open-source PipeWire quad upmix: adds a phase-shaped rear fill to stereo. It is not Dolby Atmos and has no height/object decoding."
+              color: Qt.darker(root.bar.foreground, 1.35)
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
+
+            Rectangle {
+              width: parent.width
+              height: Style.space(34)
+              radius: Style.space(6)
+              color: Util.alpha(root.bar.foreground, dolbyAccessMouse.containsMouse ? 0.13 : 0.07)
+              border.width: 1
+              border.color: Util.alpha(root.bar.foreground, 0.18)
+              Text {
+                anchors.centerIn: parent
+                text: "DOLBY ATMOS FOR HEADPHONES · OFFICIAL"
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+              MouseArea {
+                id: dolbyAccessMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: Qt.openUrlExternally("https://www.dolby.com/experience/headphones/")
+              }
+            }
+
+            Text {
+              width: parent.width
+              text: "Dolby purchase and activation happen in Dolby Access on Windows/Xbox. Linux has no supported Dolby license API for this PipeWire applet."
+              color: Qt.darker(root.bar.foreground, 1.35)
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
             }
           }
 
@@ -1377,38 +1586,22 @@ Panel {
             wrapMode: Text.WordWrap
           }
 
-          // ---- Per-app streams ----
-          PanelSeparator {
-            visible: root.displayAudioStreams.length > 0
-            foreground: root.bar.foreground
+          Button {
+            visible: root.cameraAvailable
+            text: "Open camera monitor"
+            onClicked: cameraMonitorWindow.visible = true
           }
 
-          Column {
-            width: parent.width
-            spacing: Style.space(10)
-            visible: root.displayAudioStreams.length > 0
 
-            PanelSectionHeader {
-              text: "SOURCES"
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-            }
-
-            Repeater {
-              model: root.displayAudioStreams
-
-              StreamRow {
-                required property var modelData
-                required property int index
-                width: panelColumn.width
-                node: modelData
-                rowIndex: index
-              }
-            }
-          }
         }
       }
     }
+  }
+
+  CameraMonitor {
+    id: cameraMonitorWindow
+    hardwareEnabled: root.cameraEnabled
+    logoUrl: Qt.resolvedUrl("blueview-logo-dark.svg")
   }
 
   FloatingWindow {
@@ -1418,7 +1611,7 @@ Panel {
     color: Color.background
     implicitWidth: 780
     implicitHeight: 600
-    minimumSize: Qt.size(600, 500)
+    minimumSize: Qt.size(600, 600)
 
     Column {
       anchors.fill: parent
@@ -1469,10 +1662,12 @@ Panel {
 
         Text {
           id: eqModeLabel
-          text: "EQ"
-          color: Color.foreground
+          text: root.eqEnabled ? (root.eqApplied ? "DSP ACTIVE" : "DSP MISSING") : "BYPASS"
+          color: root.eqEnabled && !root.eqApplied ? "#ff746c"
+            : (root.eqEnabled ? "#82ffc8" : Color.foreground)
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.caption
+          font.bold: true
           anchors.verticalCenter: parent.verticalCenter
         }
         ToggleSwitch {
@@ -1485,100 +1680,7 @@ Panel {
         }
       }
 
-      Item {
-        id: waveScope
-        width: parent.width
-        height: Math.max(Style.space(145), parent.height * 0.29)
 
-        Rectangle {
-          anchors.fill: parent
-          radius: Style.space(8)
-          color: "#07110f"
-          border.width: 1
-          border.color: Util.alpha(Color.accent, 0.5)
-        }
-
-        Canvas {
-          id: waveCanvas
-          anchors.fill: parent
-          anchors.margins: Style.space(10)
-          antialiasing: true
-
-          onPaint: {
-            var ctx = getContext("2d")
-            ctx.clearRect(0, 0, width, height)
-            ctx.strokeStyle = "rgba(105, 255, 195, 0.10)"
-            ctx.lineWidth = 1
-            for (var grid = 1; grid < 8; grid++) {
-              var gx = width * grid / 8
-              ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, height); ctx.stroke()
-            }
-            for (var row = 1; row < 4; row++) {
-              var gy = height * row / 4
-              ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(width, gy); ctx.stroke()
-            }
-
-            var peak = Math.max(0.04, Math.min(1, outputPeakMonitor.peak))
-            var colors = ["#68ffc0", "#66d9ff", "#ffd166", "#ff72c6"]
-            var rates = [1.15, 1.75, 2.55, 3.35]
-            var phases = [0.0, 1.1, 2.3, 3.7]
-            for (var wave = 0; wave < colors.length; wave++) {
-              ctx.beginPath()
-              ctx.lineWidth = wave === 0 ? 2.2 : 1.45
-              ctx.strokeStyle = colors[wave]
-              ctx.globalAlpha = 0.55 + peak * 0.45
-              ctx.shadowColor = colors[wave]
-              ctx.shadowBlur = 5
-              for (var x = 0; x <= width; x += 3) {
-                var t = x / Math.max(1, width)
-                var envelope = 0.20 + peak * 0.48
-                var y = height * 0.5
-                  + Math.sin(t * Math.PI * 2 * rates[wave] + root.wavePhase + phases[wave]) * height * envelope * 0.40
-                  + Math.sin(t * Math.PI * 2 * (rates[wave] * 2.13) - root.wavePhase * 0.73) * height * envelope * 0.12
-                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
-              }
-              ctx.stroke()
-            }
-            ctx.globalAlpha = 1.0
-            ctx.shadowBlur = 0
-          }
-        }
-
-        Row {
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: parent.top
-          anchors.margins: Style.space(14)
-          Text {
-            text: "LIVE OUTPUT"
-            color: "#a5ffd8"
-            font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
-            font.letterSpacing: 1
-          }
-          Item { width: parent.width - 175; height: 1 }
-          Text {
-            text: outputPeakMonitor.peak > 0.001
-              ? Math.max(-60, Math.round(20 * Math.log(outputPeakMonitor.peak) / Math.LN10)) + " dB"
-              : "−∞ dB"
-            color: "#a5ffd8"
-            font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.caption
-            horizontalAlignment: Text.AlignRight
-          }
-        }
-
-        Timer {
-          interval: 33
-          repeat: true
-          running: eqWindow.visible
-          onTriggered: {
-            root.wavePhase += 0.10
-            waveCanvas.requestPaint()
-          }
-        }
-      }
 
       Row {
         width: parent.width
@@ -1721,6 +1823,101 @@ Panel {
           anchors.verticalCenter: parent.verticalCenter
           elide: Text.ElideRight
           width: parent.width - Style.space(170)
+        }
+      }
+
+      Item {
+        id: waveScope
+        width: parent.width
+        height: Math.max(Style.space(145), parent.height * 0.29)
+
+        Rectangle {
+          anchors.fill: parent
+          radius: Style.space(8)
+          color: "#07110f"
+          border.width: 1
+          border.color: Util.alpha(Color.accent, 0.5)
+        }
+
+        Canvas {
+          id: waveCanvas
+          anchors.fill: parent
+          anchors.margins: Style.space(10)
+          antialiasing: true
+
+          onPaint: {
+            var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
+            ctx.strokeStyle = "rgba(105, 255, 195, 0.10)"
+            ctx.lineWidth = 1
+            for (var grid = 1; grid < 8; grid++) {
+              var gx = width * grid / 8
+              ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, height); ctx.stroke()
+            }
+            for (var row = 1; row < 4; row++) {
+              var gy = height * row / 4
+              ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(width, gy); ctx.stroke()
+            }
+
+            var peak = Math.max(0.04, Math.min(1, outputPeakMonitor.peak))
+            var colors = ["#68ffc0", "#66d9ff", "#ffd166", "#ff72c6"]
+            var rates = [1.15, 1.75, 2.55, 3.35]
+            var phases = [0.0, 1.1, 2.3, 3.7]
+            for (var wave = 0; wave < colors.length; wave++) {
+              ctx.beginPath()
+              ctx.lineWidth = wave === 0 ? 2.2 : 1.45
+              ctx.strokeStyle = colors[wave]
+              ctx.globalAlpha = 0.55 + peak * 0.45
+              ctx.shadowColor = colors[wave]
+              ctx.shadowBlur = 5
+              for (var x = 0; x <= width; x += 3) {
+                var t = x / Math.max(1, width)
+                var envelope = 0.20 + peak * 0.48
+                var y = height * 0.5
+                  + Math.sin(t * Math.PI * 2 * rates[wave] + root.wavePhase + phases[wave]) * height * envelope * 0.40
+                  + Math.sin(t * Math.PI * 2 * (rates[wave] * 2.13) - root.wavePhase * 0.73) * height * envelope * 0.12
+                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+              }
+              ctx.stroke()
+            }
+            ctx.globalAlpha = 1.0
+            ctx.shadowBlur = 0
+          }
+        }
+
+        Row {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.margins: Style.space(14)
+          Text {
+            text: "LIVE OUTPUT"
+            color: "#a5ffd8"
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            font.letterSpacing: 1
+          }
+          Item { width: parent.width - 175; height: 1 }
+          Text {
+            text: outputPeakMonitor.peak > 0.001
+              ? Math.max(-60, Math.round(20 * Math.log(outputPeakMonitor.peak) / Math.LN10)) + " dB"
+              : "−∞ dB"
+            color: "#a5ffd8"
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.caption
+            horizontalAlignment: Text.AlignRight
+          }
+        }
+
+        Timer {
+          interval: 33
+          repeat: true
+          running: eqWindow.visible
+          onTriggered: {
+            root.wavePhase += 0.10
+            waveCanvas.requestPaint()
+          }
         }
       }
 

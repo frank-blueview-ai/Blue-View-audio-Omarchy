@@ -1,0 +1,11 @@
+  INFO: Launching config: "/tmp/blueview-camera-live-v5r3sekd/shell.qml"
+  INFO: Shell ID: "0280ab4eb6cf8d8f2202133825f5f71b" Path ID "0280ab4eb6cf8d8f2202133825f5f71b"
+  INFO: Saving logs to "/run/user/1000/quickshell/by-id/lmtypgbblt/log.qslog"
+  WARN quickshell.qmlscanner: Ignoring unresolvable import "/tmp/blueview-camera-live-v5r3sekd/file:///home/fperez/.config/omarchy/plugins/fperez.audio" from "/tmp/blueview-camera-live-v5r3sekd/shell.qml"
+  INFO qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version n9.0.1 GPL version 3 or later
+Failed to open VDPAU backend libvdpau_nvidia.so: cannot open shared object file: No such file or directory
+MESA-INTEL: warning: Haswell Vulkan support is incomplete
+  INFO: Configuration Loaded
+  WARN qt.qpa.services: Failed to register with host portal QDBusError("org.freedesktop.portal.Error.Failed", "Could not register app ID: Connection already associated with an application ID")
+ DEBUG qml: CAMERA_LIVE true 129 
+ DEBUG qml: CAMERA_CLOSED false 0

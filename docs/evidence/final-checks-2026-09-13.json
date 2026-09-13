@@ -1,0 +1,42 @@
+[
+  {
+    "check": "tests/e2e_speaker_position.py",
+    "exit_code": 0,
+    "log": "docs/evidence/final-0-e2e_speaker_position.log"
+  },
+  {
+    "check": "tests/e2e_stereo_upmix.py",
+    "exit_code": 0,
+    "log": "docs/evidence/final-1-e2e_stereo_upmix.log"
+  },
+  {
+    "check": "tests/e2e_mpv_playback.py",
+    "exit_code": 0,
+    "log": "docs/evidence/final-2-e2e_mpv_playback.log"
+  },
+  {
+    "check": "tests/e2e_eq_multichannel.py",
+    "exit_code": 0,
+    "log": "docs/evidence/final-3-e2e_eq_multichannel.log"
+  },
+  {
+    "check": "tests/e2e_speaker_mutes.py",
+    "exit_code": 0,
+    "log": "docs/evidence/final-4-e2e_speaker_mutes.log"
+  },
+  {
+    "check": "tests/e2e_output_handoff.py --client pulse",
+    "exit_code": 0,
+    "log": "docs/evidence/final-5-e2e_output_handoff.log"
+  },
+  {
+    "check": "tests/e2e_output_handoff.py --client pipewire",
+    "exit_code": 0,
+    "log": "docs/evidence/final-6-e2e_output_handoff.log"
+  },
+  {
+    "check": "tests/e2e_output_handoff.py --client alsa",
+    "exit_code": 0,
+    "log": "docs/evidence/final-7-e2e_output_handoff.log"
+  }
+]

@@ -1,0 +1,11 @@
+Live EQ test: +6 dB at 2 kHz on both speaker pairs; other bands flat.
+Input peak: -24 dBFS; one playback stream covered both graph updates.
+Monitor: alsa_output.pci-0000_00_1b.0.analog-surround-40.monitor
+FL: flat 250/2k -61.4/-61.4 dBFS; EQ 250/2k -61.3/-55.4; 2 kHz boost +5.9 dB; restored -0.0 dB
+FR: flat 250/2k -61.4/-61.4 dBFS; EQ 250/2k -61.3/-55.4; 2 kHz boost +5.9 dB; restored -0.0 dB
+RL: flat 250/2k -61.4/-61.4 dBFS; EQ 250/2k -61.3/-55.4; 2 kHz boost +5.9 dB; restored -0.0 dB
+RR: flat 250/2k -61.4/-61.4 dBFS; EQ 250/2k -61.3/-55.4; 2 kHz boost +5.9 dB; restored -0.0 dB
+PASS: all four output lanes changed with EQ and returned to baseline.
+PASS: the paplay stream id remained unchanged through both live updates.
+Runtime graph restored to the previous saved curve, or flat bypass when it was inactive.
+Saved speaker routes and EQ sliders were not changed.

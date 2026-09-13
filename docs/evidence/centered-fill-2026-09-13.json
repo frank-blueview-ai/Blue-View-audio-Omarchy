@@ -1,0 +1,46 @@
+[
+  {
+    "method": "psd",
+    "channels": 1,
+    "same_signal_all_inputs": true,
+    "tone_dbfs": [
+      -38.3,
+      -38.3,
+      -145.4,
+      -145.4
+    ]
+  },
+  {
+    "method": "psd",
+    "channels": 2,
+    "same_signal_all_inputs": true,
+    "tone_dbfs": [
+      -38.3,
+      -38.3,
+      -143.7,
+      -143.7
+    ]
+  },
+  {
+    "method": "simple",
+    "channels": 1,
+    "same_signal_all_inputs": true,
+    "tone_dbfs": [
+      -38.3,
+      -38.3,
+      -38.3,
+      -38.3
+    ]
+  },
+  {
+    "method": "simple",
+    "channels": 2,
+    "same_signal_all_inputs": true,
+    "tone_dbfs": [
+      -38.3,
+      -38.3,
+      -41.3,
+      -41.3
+    ]
+  }
+]

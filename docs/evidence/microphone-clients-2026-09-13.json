@@ -1,0 +1,54 @@
+[
+  {
+    "client": "native PipeWire",
+    "command": [
+      "pw-cat",
+      "--record",
+      "--raw",
+      "--format=s32",
+      "--rate=48000",
+      "--channels=2",
+      "--target=alsa_input.pci-0000_00_1b.0.analog-stereo",
+      "-"
+    ],
+    "exit_code": 1,
+    "intentionally_stopped": true,
+    "frames": 141312,
+    "channel_rms_dbfs": [
+      -46.242734879138574,
+      -44.45970535718751
+    ],
+    "raw_audio_retained": false,
+    "error": "",
+    "passed": true
+  },
+  {
+    "client": "ALSA default",
+    "command": [
+      "arecord",
+      "-q",
+      "-D",
+      "default",
+      "-t",
+      "raw",
+      "-f",
+      "S32_LE",
+      "-r",
+      "48000",
+      "-c",
+      "2",
+      "-d",
+      "2"
+    ],
+    "exit_code": 0,
+    "intentionally_stopped": false,
+    "frames": 96000,
+    "channel_rms_dbfs": [
+      -45.47877157698959,
+      -44.205584558102785
+    ],
+    "raw_audio_retained": false,
+    "error": "",
+    "passed": true
+  }
+]

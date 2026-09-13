@@ -23,13 +23,44 @@ install_if_missing() {
   fi
 }
 
-install -Dm644 "$ROOT/Panel.qml" "$PLUGIN_DIR/Panel.qml"
-install -Dm644 "$ROOT/Model.js" "$PLUGIN_DIR/Model.js"
-install -Dm644 "$ROOT/manifest.json" "$PLUGIN_DIR/manifest.json"
-install -Dm644 "$ROOT/assets/blueview-logo-dark.svg" "$PLUGIN_DIR/blueview-logo-dark.svg"
+install_atomic() {
+  local source="$1"
+  local destination="$2"
+  local mode="${3:-644}"
+  local temp
+  if [[ -f "$destination" ]] && cmp -s "$source" "$destination"; then
+    return
+  fi
+  mkdir -p "$(dirname "$destination")"
+  temp="$(mktemp "$(dirname "$destination")/.$(basename "$destination").XXXXXX")"
+  install -m "$mode" "$source" "$temp"
+  mv -f "$temp" "$destination"
+}
+
+install_atomic "$ROOT/CameraMonitor.qml" "$PLUGIN_DIR/CameraMonitor.qml" 644
+install_atomic "$ROOT/Panel.qml" "$PLUGIN_DIR/Panel.qml" 644
+install_atomic "$ROOT/Model.js" "$PLUGIN_DIR/Model.js" 644
+install_atomic "$ROOT/manifest.json" "$PLUGIN_DIR/manifest.json" 644
+install_atomic "$ROOT/assets/blueview-logo-dark.svg" "$PLUGIN_DIR/blueview-logo-dark.svg" 644
 install -Dm755 "$ROOT/scripts/imac-audio-controls" "$BIN_DIR/imac-audio-controls"
-install_if_missing "$ROOT/pipewire/50-blue-view-open-quad.conf" \
-  "$CONFIG_HOME/pipewire/filter-chain.conf.d/50-blue-view-open-quad.conf"
+install_atomic "$ROOT/pipewire/40-blue-view-stereo-upmix.conf" \
+  "$CONFIG_HOME/pipewire/pipewire-pulse.conf.d/40-blue-view-stereo-upmix.conf"
+install_atomic "$ROOT/pipewire/40-blue-view-stereo-upmix.conf" \
+  "$CONFIG_HOME/pipewire/client.conf.d/40-blue-view-stereo-upmix.conf"
+install_atomic "$ROOT/pipewire/45-blue-view-quality.conf" \
+  "$CONFIG_HOME/pipewire/pipewire-pulse.conf.d/45-blue-view-quality.conf"
+install_atomic "$ROOT/pipewire/45-blue-view-quality.conf" \
+  "$CONFIG_HOME/pipewire/client.conf.d/45-blue-view-quality.conf"
+install_atomic "$ROOT/pipewire/40-blue-view-jack.conf" \
+  "$CONFIG_HOME/pipewire/jack.conf.d/40-blue-view-jack.conf"
+# Upgrade only the exact previous distributed graph; keep local customizations.
+SPATIAL_CONFIG="$CONFIG_HOME/pipewire/filter-chain.conf.d/50-blue-view-open-quad.conf"
+if [[ -f "$SPATIAL_CONFIG" ]] && [[ "$(sha256sum "$SPATIAL_CONFIG" | cut -d ' ' -f1)" == "431c294052b06d69fec33ac48609e54545fdf85a99533e26ac05d6f8ab9180ea" ]]; then
+  cp -p "$SPATIAL_CONFIG" "$SPATIAL_CONFIG.before-four-channel"
+  install_atomic "$ROOT/pipewire/50-blue-view-open-quad.conf" "$SPATIAL_CONFIG"
+else
+  install_if_missing "$ROOT/pipewire/50-blue-view-open-quad.conf" "$SPATIAL_CONFIG"
+fi
 install_if_missing "$ROOT/systemd/blue-view-open-quad.service" \
   "$UNIT_DIR/blue-view-open-quad.service"
 
@@ -67,5 +98,7 @@ PY
 
 systemctl --user daemon-reload
 printf 'Blue View Audio installed. Reload the Omarchy shell or sign out and back in to show the panel.\n'
+printf 'Restart PipeWire PulseAudio while playback is idle to enable PulseAudio-client stereo upmixing.\n'
+printf 'Native PipeWire clients use four-speaker upmixing when next launched.\n'
 printf 'Open Quad Spatial remains off until you enable it in the panel.\n'
-printf 'Existing hardware, EQ, and spatial configuration files are preserved.\n'
+printf 'Existing hardware, EQ, and custom spatial configuration files are preserved.\n'
