@@ -20,7 +20,11 @@
     ],
     "raw_audio_retained": false,
     "error": "",
-    "passed": true
+    "passed": true,
+    "exit_interpretation": "PipeWire 1.6.8 pw-cat initializes EXIT_FAILURE; only on_drained sets success. Recording sample-limit and SIGINT quit without on_drained. Exit 1 here does not invalidate the captured samples.",
+    "source_reference": "https://github.com/PipeWire/pipewire/blob/1.6.8/src/tools/pw-cat.c",
+    "capture_signal_gate": "passed",
+    "process_exit_gate": "expected recorder behavior in inspected version"
   },
   {
     "client": "ALSA default",
