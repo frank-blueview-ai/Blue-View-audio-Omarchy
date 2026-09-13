@@ -1,0 +1,66 @@
+{
+  "before": [
+    {
+      "kind": "audioinput",
+      "label": "Default"
+    },
+    {
+      "kind": "audioinput",
+      "label": "Built-in Audio Analog Stereo"
+    },
+    {
+      "kind": "videoinput",
+      "label": "FaceTime HD Camera (Built-in)"
+    },
+    {
+      "kind": "audiooutput",
+      "label": "Default"
+    },
+    {
+      "kind": "audiooutput",
+      "label": "Built-in Audio Analog Surround 4.0"
+    },
+    {
+      "kind": "audiooutput",
+      "label": "Remapped alsa_output.pci-0000_00_1b.0.analog-surround-40 sink"
+    }
+  ],
+  "ok": true,
+  "rms": 0.00014691699120271583,
+  "track": {
+    "label": "Default",
+    "settings": {
+      "autoGainControl": true,
+      "channelCount": 1,
+      "deviceId": "default",
+      "echoCancellation": true,
+      "latency": 0.01,
+      "noiseSuppression": true,
+      "sampleRate": 48000,
+      "sampleSize": 16,
+      "voiceIsolation": false
+    },
+    "state": "live"
+  },
+  "test_context": "Fresh temporary Chromium profile via ChromeDriver; localhost secure context; real microphone; automatic permission prompt acceptance only, no fake media device.",
+  "requested_constraints": {
+    "audio": {
+      "echoCancellation": true,
+      "noiseSuppression": true,
+      "autoGainControl": true,
+      "sampleRate": 24000
+    },
+    "video": false
+  },
+  "raw_audio_retained": false,
+  "existing_browser_site_retry": "Pending user confirmation after AudioService refresh",
+  "existing_browser_capture_after_refresh": [
+    {
+      "source": 35189,
+      "application": "Chromium input",
+      "format": "s16le 2ch 48000Hz",
+      "muted": false,
+      "corked": false
+    }
+  ]
+}
